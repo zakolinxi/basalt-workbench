@@ -1,4 +1,4 @@
-BASALT 0.1.3 — Windows x64
+BASALT 0.1.4 — Windows x64
 ==========================
 
 Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）。
@@ -12,7 +12,7 @@ Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）�
 
 两种方式
 --------
-1. 安装版：运行 Basalt_0.1.3_x64-setup.exe，按向导安装。
+1. 安装版：运行 Basalt_0.1.4_x64-setup.exe，按向导安装。
 2. 便携版：直接运行 Basalt.exe。便携版仍使用 %APPDATA%\com.basalt.workbench
    保存数据库、附件与设置。
 

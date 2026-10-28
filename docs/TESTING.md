@@ -70,7 +70,7 @@ Rust 测试覆盖：
 | 产物 | 结果 |
 | --- | --- |
 | `release/Basalt.exe` | 构建成功（20,847,104 字节，约 20.9MB） |
-| `release/Basalt_0.1.3_x64-setup.exe` | NSIS 安装包构建成功（7.54 MiB） |
+| `release/Basalt_0.1.4_x64-setup.exe` | NSIS 安装包构建成功（7.54 MiB） |
 | 首次启动 | 成功；窗口 “Basalt Workbench”；数据目录正常创建 |
 | 遥测 / 网络 | 启动不联网；仅供应商请求与 Agent 联网工具会访问外部服务 |
 | 静默安装 | `/S /D=<temp>`，退出码 0 |
