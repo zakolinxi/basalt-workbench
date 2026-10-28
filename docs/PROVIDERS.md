@@ -114,6 +114,6 @@ Ollama、OpenAI 图像、Gemini 图像、OpenAI 兼容图像、自建图像网�
 - 自定义请求头会合并，但禁止覆盖 Authorization / x-api-key 等核心认证头。
 - 自定义参数合并到请求体，保护 model、messages、tools、stream 等核心字段。
 - 全局请求 User-Agent 可在「设置 → 安全与数据」中修改；供应商自定义 `User-Agent`
-  请求头优先。默认使用 Windows Chrome 标识并附加 `Basalt/0.1.1`。
+  请求头优先。默认使用 Windows Chrome 标识并附加 `Basalt/0.1.2`。
 - 每个请求有连接与总超时；对话支持取消。
 - 错误按 401/403/404/429/5xx 分类为可读提示，不记录密钥。

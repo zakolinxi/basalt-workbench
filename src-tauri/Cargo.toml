@@ -1,6 +1,6 @@
 [package]
 name = "basalt"
-version = "0.1.1"
+version = "0.1.2"
 description = "Basalt — local-first AI engineering workbench"
 authors = ["Basalt"]
 license = "MIT"
