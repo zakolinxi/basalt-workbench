@@ -16,6 +16,7 @@ import {
   Input,
   Select,
 } from "../components/ui";
+import { TitlebarDrag } from "../components/WindowControls";
 
 const CHAT_ROUTES: {
   key: keyof Routing;
@@ -177,6 +178,7 @@ export function SettingsView() {
             <h1 className="page-title">设置</h1>
             <div className="page-sub">模型路由 · 审批策略 · 终端与界面</div>
           </div>
+          <TitlebarDrag />
           <div className="page-head-actions">
             <Button
               onClick={() =>

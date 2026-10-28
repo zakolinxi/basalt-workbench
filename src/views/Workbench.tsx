@@ -11,6 +11,7 @@ import { useAppStore, currentProject, currentSession } from "../lib/store";
 import { taskStatusClass, TASK_STATUS_LABEL } from "../lib/format";
 import { pickAndAddProject } from "../lib/project";
 import { Sidebar } from "../components/Sidebar";
+import { TitlebarDrag } from "../components/WindowControls";
 import { ChatView } from "../components/ChatView";
 import { RightPanel } from "../components/RightPanel";
 import { TerminalPanel } from "../components/TerminalPanel";
@@ -204,6 +205,7 @@ function TopBar() {
           </>
         ) : null}
       </div>
+      <TitlebarDrag />
       <div className="topbar-actions">
         <Button size="sm" variant="ghost" onClick={() => void newSession()}>
           <Plus size={12} /> 新会话

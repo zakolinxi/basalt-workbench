@@ -34,6 +34,7 @@ import {
   Select,
   Textarea,
 } from "../components/ui";
+import { TitlebarDrag } from "../components/WindowControls";
 
 function ImageFromPath({
   path,
@@ -333,6 +334,7 @@ export function ImageStudio() {
               独立的图像生成与编辑服务，不依赖聊天模型与 Agent Runtime
             </div>
           </div>
+          <TitlebarDrag />
           <div className="page-head-actions">
             <Button onClick={() => void refreshHistory()}>
               <RefreshCw size={12} /> 刷新历史

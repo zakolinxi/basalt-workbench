@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { Rail } from "./components/Rail";
+import { TitlebarDrag, WindowControls } from "./components/WindowControls";
 import { Toasts } from "./components/ui";
 import { useAppStore } from "./lib/store";
 import { applyCornerStyle, applyTheme, watchSystemTheme } from "./lib/theme";
@@ -93,70 +94,85 @@ export default function App() {
 
   if (!booted) {
     return (
-      <div className="boot-screen">
-        <div className="boot-logo">
-          <span />
-          <span />
-          <span />
+      <>
+        <div className="boot-titlebar">
+          <TitlebarDrag />
         </div>
-        <div>
-          <div className="boot-title">BASALT</div>
-          <div className="boot-sub">AI ENGINEERING WORKBENCH</div>
+        <WindowControls />
+        <div className="boot-screen">
+          <div className="boot-logo">
+            <span />
+            <span />
+            <span />
+          </div>
+          <div>
+            <div className="boot-title">BASALT</div>
+            <div className="boot-sub">AI ENGINEERING WORKBENCH</div>
+          </div>
+          <div className="row" style={{ color: "var(--fg-3)", fontSize: 11 }}>
+            <span className="spinner" /> 正在初始化工作台…
+          </div>
         </div>
-        <div className="row" style={{ color: "var(--fg-3)", fontSize: 11 }}>
-          <span className="spinner" /> 正在初始化工作台…
-        </div>
-      </div>
+      </>
     );
   }
 
   if (bootError) {
     return (
-      <div className="boot-screen">
-        <div className="boot-logo">
-          <span />
-          <span />
-          <span />
+      <>
+        <div className="boot-titlebar">
+          <TitlebarDrag />
         </div>
-        <div>
-          <div className="boot-title">BASALT</div>
-          <div className="boot-sub">STARTUP FAILED</div>
+        <WindowControls />
+        <div className="boot-screen">
+          <div className="boot-logo">
+            <span />
+            <span />
+            <span />
+          </div>
+          <div>
+            <div className="boot-title">BASALT</div>
+            <div className="boot-sub">STARTUP FAILED</div>
+          </div>
+          <div className="boot-error">{bootError}</div>
+          <button
+            className="btn primary"
+            onClick={() => {
+              setRetrying(true);
+              location.reload();
+            }}
+            disabled={retrying}
+          >
+            重新加载
+          </button>
         </div>
-        <div className="boot-error">{bootError}</div>
-        <button
-          className="btn primary"
-          onClick={() => {
-            setRetrying(true);
-            location.reload();
-          }}
-          disabled={retrying}
-        >
-          重新加载
-        </button>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="app-shell">
-      <Rail />
-      <div className="app-body">
-        <div
-          style={{
-            display: view === "workbench" ? "flex" : "none",
-            flex: 1,
-            minWidth: 0,
-            minHeight: 0,
-            flexDirection: "column",
-          }}
-        >
-          <Workbench />
+    <>
+      <div className="app-shell">
+        <Rail />
+        <div className="app-body">
+          <div
+            style={{
+              display: view === "workbench" ? "flex" : "none",
+              flex: 1,
+              minWidth: 0,
+              minHeight: 0,
+              flexDirection: "column",
+            }}
+          >
+            <Workbench />
+          </div>
+          {view === "providers" ? <ProvidersView /> : null}
+          {view === "images" ? <ImageStudio /> : null}
+          {view === "settings" ? <SettingsView /> : null}
         </div>
-        {view === "providers" ? <ProvidersView /> : null}
-        {view === "images" ? <ImageStudio /> : null}
-        {view === "settings" ? <SettingsView /> : null}
       </div>
+      <WindowControls />
       <Toasts />
-    </div>
+    </>
   );
 }

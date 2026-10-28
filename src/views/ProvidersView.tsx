@@ -38,6 +38,7 @@ import {
   Switch,
   Textarea,
 } from "../components/ui";
+import { TitlebarDrag } from "../components/WindowControls";
 
 const CHAT_PROTOCOLS = [
   "openai_chat",
@@ -397,6 +398,7 @@ export function ProvidersView() {
               多协议适配 · 模型能力矩阵 · 密钥存于 Windows 凭据管理器
             </div>
           </div>
+          <TitlebarDrag />
           <div className="page-head-actions">
             <Button onClick={() => void refreshProviders()}>
               <RefreshCw size={12} /> 刷新
