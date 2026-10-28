@@ -1745,7 +1745,7 @@ a {
   flex: none;
   border-top: 1px solid var(--line);
   background: var(--bg-0);
-  padding: 10px 18px 80px;
+  padding: 10px 18px 50px;
   position: relative;
 }
 .composer {
