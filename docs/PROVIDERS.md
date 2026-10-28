@@ -6,13 +6,14 @@
 2. 选择分类（对话 / 图像）和协议；分类决定可用协议与字段。
 3. 填写：
    - 显示名称
-   - Base URL
+   - Base URL（只填域名即可，见下节自动补全）
    - API Key（仅一次写入）
    - 超时（5–600 秒）
    - 流式开关（仅对话）
    - 启用状态
-4. 添加模型并设置能力状态；也可以保存后「测试连接 / 拉取模型」自动发现。
-5. 设置默认聊天 / 视觉 / 图像模型。
+4. 添加模型：在模型卡片中填写模型 ID、显示名称与上下文窗口（支持 32K / 128K /
+   200K / 1M 预设），再按分组标记能力；也可以保存后「测试连接 / 拉取模型」自动发现。
+5. 在模型卡片底部设置默认对话 / 视觉 / 图像模型。
 6. 保存，在「设置 → 模型路由」中把用途指向该供应商/模型。
 
 API Key 保存在 Windows Credential Manager 的 `com.basalt.workbench` 服务下，
@@ -32,7 +33,18 @@ API Key 保存在 Windows Credential Manager 的 `com.basalt.workbench` 服务�
 
 OpenAI 兼容服务只需支持相应端点。兼容格式不等于兼容全部能力；以能力矩阵与真实测试为准。
 
+Base URL 可以只填域名（例如 `api.deepseek.com`）。输入框失焦或保存时，前后端都会自动归一化：
+
+- 默认补全 `https://` 与 `/v1`；本机 / 局域网地址补 `http://`。
+- Gemini 补 `/v1beta`；Ollama 保持根地址，并去掉 `/api`、`/v1` 等端点。
+- 已包含版本路径（`/v1`、`/v4`、`/api/paas/v4`、`/compatible-mode/v1` 等）不会重复追加。
+- 粘贴完整端点（`/chat/completions`、`/responses`、`/models`、`/images/generations` 等）
+  会先裁掉端点，再按协议补齐版本路径。
+
 ## 能力矩阵
+
+模型以卡片呈现：折叠时显示名称、模型 ID、上下文窗口、来源与能力摘要；展开后编辑
+ID、名称、上下文和能力状态。
 
 每个模型可独立标记：
 
@@ -47,8 +59,9 @@ OpenAI 兼容服务只需支持相应端点。兼容格式不等于兼容全部�
 - 多轮工具调用
 - 思考强度（标记为不支持时，输入框会隐藏强度选择）
 
-状态：`verified`（已通过真实调用/接口元数据）、`unverified`、`unsupported`、
-`failed`、`unavailable`。
+能力按「对话与输出 / 工具与推理 / 视觉与图像」分组，只展示当前分类相关项，并提供
+「全部可用 / 全部未验证」批量操作。状态：`verified`（已通过真实调用/接口元数据）、
+`unverified`、`unsupported`、`failed`、`unavailable`。
 
 - 测试连接成功只表示模型列表/认证可用，不等同于所有能力已验证。
 - 聊天/工具/图像成功调用后，应用会把对应能力自动标记为 `verified`。
@@ -114,6 +127,6 @@ Ollama、OpenAI 图像、Gemini 图像、OpenAI 兼容图像、自建图像网�
 - 自定义请求头会合并，但禁止覆盖 Authorization / x-api-key 等核心认证头。
 - 自定义参数合并到请求体，保护 model、messages、tools、stream 等核心字段。
 - 全局请求 User-Agent 可在「设置 → 安全与数据」中修改；供应商自定义 `User-Agent`
-  请求头优先。默认使用 Windows Chrome 标识并附加 `Basalt/0.1.4`。
+  请求头优先。默认使用 Windows Chrome 标识并附加 `Basalt/0.1.5`。
 - 每个请求有连接与总超时；对话支持取消。
 - 错误按 401/403/404/429/5xx 分类为可读提示，不记录密钥。

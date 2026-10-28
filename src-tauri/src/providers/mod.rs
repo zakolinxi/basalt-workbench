@@ -1,4 +1,5 @@
 pub mod anthropic;
+pub mod base_url;
 pub mod gemini;
 pub mod http;
 pub mod images;
@@ -189,12 +190,13 @@ pub fn mark_capabilities(
 }
 
 pub fn load_runtime(state: &AppState, provider_id: &str) -> AppResult<ProviderRuntime> {
-    let (provider, user_agent) = {
+    let (mut provider, user_agent) = {
         let conn = state.db();
         let provider = crate::db::get_provider_row(&conn, provider_id)?;
         let user_agent = crate::db::load_settings(&conn).user_agent;
         (provider, user_agent)
     };
+    provider.base_url = base_url::normalize_base_url(&provider.base_url, &provider.protocol);
     let api_key = secrets::get_api_key(provider_id);
     Ok(ProviderRuntime {
         provider,

@@ -50,7 +50,7 @@
 - 模板：OpenAI Chat / Responses、Anthropic、Gemini、DeepSeek、MiniMax、Kimi、Qwen、
   GLM、Grok、OpenAI 兼容、自建网关、Ollama、OpenAI Images、Gemini Images。
 - API Key 存 Windows 凭据管理器；Base URL、超时、流式、自定义头/参数。
-- 模型能力矩阵（10 项能力 × 5 种状态），支持手动标记与真实调用自动标记。
+- 模型卡片编辑器：上下文窗口预设、10 项能力 × 5 种状态的分组能力矩阵、批量标记与默认模型切换。
 - 连接测试 / 拉取模型；最近连接状态与错误展示。
 - 图像工作区：生成、编辑、参考图、蒙版（模型支持时）、尺寸/质量/数量/背景约束、
   历史、预览、保存、重生成、继续编辑、复制提示词、删除。

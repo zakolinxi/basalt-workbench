@@ -11,10 +11,10 @@
 | 检查 | 命令 | 结果 |
 | --- | --- | --- |
 | TypeScript 类型检查 | `npx tsc --noEmit` | 通过，0 errors |
-| 前端单元测试 | `npx vitest run` | 4 passed（Diff 工具） |
+| 前端单元测试 | `npx vitest run` | 15 passed（Diff / 权限 / Base URL） |
 | 前端生产构建 | `npm run build` | 通过，生成 `dist/` |
 | Rust 编译检查 | `cargo check` | 通过 |
-| Rust 测试 | `cargo test` | **31 passed, 0 failed** |
+| Rust 测试 | `cargo test` | **38 passed, 0 failed** |
 
 Rust 测试覆盖：
 
@@ -23,6 +23,8 @@ Rust 测试覆盖：
   `git push` 审批、命令内 `..` 拒绝。
 - `providers/sse`：跨 chunk 分行、`[DONE]`、SSE JSON。
 - `providers/http`：URL 拼接、非法 Base URL。
+- `providers/base_url`：补全 scheme 与 `/v1`、Gemini `/v1beta`、Ollama 根地址、
+  已有版本路径、粘贴完整端点、本机 / 局域网 http 识别。
 - `agent/web`：HTML 清理与实体解码、DDG/Bing 结果解析、内网 URL 拒绝。
 - `db`：模板种子、无 Mock、设置往返持久化。
 - `git`：真实临时仓库的 untracked 状态、HEAD ↔ 工作区 Diff。
@@ -37,6 +39,8 @@ Rust 测试覆盖：
 
 - 默认 Agent 模式、无 Mock 供应商、空模型路由。
 - 供应商模板创建与模型目录。
+- Base URL 自动补全（OpenAI `/v1`、Gemini `/v1beta`、Ollama 根地址）与保存持久化。
+- 模型卡片编辑、上下文预设、默认模型切换、分组能力矩阵与批量标记。
 - 思考强度选择器 8 档、会话持久化与各协议请求字段。
 - Agent 任务创建、联网搜索、网页读取、只读子代理与时间线输出。
 - 浅色/深色主题、窄屏布局。
@@ -49,7 +53,7 @@ Rust 测试覆盖：
 | --- | --- |
 | `readme-workbench.png` | 工作区 + 会话侧栏、默认 Agent 输入框 |
 | `readme-reasoning.png` | 思考强度 8 档选择 |
-| `readme-providers.png` | 供应商、模板与模型矩阵 |
+| `readme-providers.png` | 供应商、模板与模型卡片编辑器 |
 | `readme-settings.png` | 模型路由与应用设置 |
 
 测试发现的真实缺陷及修复：
@@ -69,8 +73,9 @@ Rust 测试覆盖：
 
 | 产物 | 结果 |
 | --- | --- |
-| `release/Basalt.exe` | 构建成功（20,847,104 字节，约 20.9MB） |
-| `release/Basalt_0.1.4_x64-setup.exe` | NSIS 安装包构建成功（7.54 MiB） |
+| `release/Basalt.exe` | 构建成功（21,323,264 字节，约 20.34 MiB） |
+| `release/Basalt_0.1.5_x64-setup.exe` | NSIS 安装包构建成功（7.55 MiB） |
+| `release/Basalt-0.1.5-x64-portable.zip` | 便携压缩包构建成功（9.11 MiB） |
 | 首次启动 | 成功；窗口 “Basalt Workbench”；数据目录正常创建 |
 | 遥测 / 网络 | 启动不联网；仅供应商请求与 Agent 联网工具会访问外部服务 |
 | 静默安装 | `/S /D=<temp>`，退出码 0 |

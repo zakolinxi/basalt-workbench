@@ -1,7 +1,7 @@
 {
   "name": "basalt-workbench",
   "private": true,
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Basalt — local-first AI engineering workbench for Windows",
   "license": "MIT",
   "type": "module",

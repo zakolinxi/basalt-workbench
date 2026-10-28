@@ -11,13 +11,15 @@ use crate::models::{
     ProviderTestResult, CAP_FAILED, CAP_UNAVAILABLE, CAP_UNSUPPORTED, CAP_UNVERIFIED, CAP_VERIFIED,
 };
 use crate::providers::{
-    capability_baseline, chat_adapter, image_adapter, load_runtime, mark_capabilities,
+    base_url::normalize_base_url, capability_baseline, chat_adapter, image_adapter, load_runtime,
+    mark_capabilities,
 };
 use crate::secrets;
 use crate::state::AppState;
 
 fn attach_key(mut provider: Provider) -> Provider {
     provider.has_key = secrets::has_api_key(&provider.id);
+    provider.base_url = normalize_base_url(&provider.base_url, &provider.protocol);
     provider
 }
 
@@ -161,10 +163,11 @@ fn ensure_default_models(input: &mut ProviderInput) {
 }
 
 fn save_provider(state: &AppState, input: ProviderInput) -> AppResult<Provider> {
-    validate_input(&input)?;
     let mut input = input;
+    input.base_url = normalize_base_url(&input.base_url, &input.protocol);
+    validate_input(&input)?;
     input.name = input.name.trim().to_string();
-    input.base_url = input.base_url.trim().trim_end_matches('/').to_string();
+    input.base_url = input.base_url.trim_end_matches('/').to_string();
     input.headers = if input.headers.is_null() {
         serde_json::json!({})
     } else {
@@ -358,6 +361,7 @@ pub fn provider_duplicate(
     };
     let new_id = Uuid::new_v4().to_string();
     let timestamp = now();
+    let base_url = normalize_base_url(&source.base_url, &source.protocol);
     // 从模板创建的是新供应商，不是副本；只有复制已有配置才保留“副本”语义。
     let base_name = if source.is_template {
         source.name.clone()
@@ -380,7 +384,7 @@ pub fn provider_duplicate(
                 name,
                 source.category,
                 source.protocol,
-                source.base_url,
+                base_url,
                 serde_json::to_string(&source.models)?,
                 source.default_chat_model,
                 source.default_vision_model,

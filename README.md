@@ -55,9 +55,9 @@ npm run tauri build
 
 本机已验证产物（见 `release/`）：
 
-- `release/Basalt.exe` — 免安装 EXE
-- `release/Basalt_0.1.4_x64-setup.exe` — NSIS 安装包（7.55 MiB）
-- `release/Basalt-0.1.4-x64-portable.zip` — 便携压缩包
+- `release/Basalt.exe` — 免安装 EXE（20.34 MiB）
+- `release/Basalt_0.1.5_x64-setup.exe` — NSIS 安装包（7.55 MiB）
+- `release/Basalt-0.1.5-x64-portable.zip` — 便携压缩包（9.11 MiB）
 - `release/SHA256SUMS.txt` — 校验和
 
 原始构建位置：`src-tauri/target/release/basalt.exe`、
@@ -67,9 +67,11 @@ npm run tauri build
 
 1. 打开「供应商」，从模板创建供应商（OpenAI、Anthropic、Gemini、DeepSeek、MiniMax、
    Kimi、Qwen、GLM、Grok、Ollama 或兼容接口）。
-2. 填写 API Key、Base URL，保存并「测试连接 / 拉取模型」。
-3. 在模型能力矩阵中确认或手动标记能力；真实调用成功后能力会自动标记为已验证。
-4. 在「设置 → 模型路由」中选择默认聊天、Agent 执行、代码审查、图像生成与编辑模型。
+2. 填写 API Key；Base URL 只填域名即可，保存时自动补全 `/v1`（Gemini 为 `/v1beta`，
+   Ollama 保持根地址）。保存并「测试连接 / 拉取模型」。
+3. 在模型卡片中填写上下文窗口，按需分组标记能力；卡片底部可设置该供应商的默认
+   对话 / 视觉 / 图像模型。真实调用成功后能力会自动标记为已验证。
+4. 在「设置 → 模型路由」中选择 Agent 执行、代码审查、图像生成与编辑模型。
 5. 添加本地项目目录，输入框默认处于 **Agent** 模式，输入任务即可开始。
 6. 使用 `/img <提示词>` 可在对话内调用独立图像供应商。
 
@@ -83,7 +85,7 @@ API Key 只写入 Windows 凭据管理器；数据库与前端均不保存明文
 | 工作区 + 会话侧栏、默认 Agent 输入框 | off / minimal / low / medium / high / xhigh / max / ultra |
 | 供应商与模板 | 模型路由 |
 | ![供应商](docs/screenshots/readme-providers.png) | ![设置](docs/screenshots/readme-settings.png) |
-| 供应商、模板与模型能力矩阵 | 模型路由与 Agent 设置 |
+| 供应商、模板与模型卡片编辑器 | 模型路由与 Agent 设置 |
 
 截图使用本地 Ollama 供应商与演示工作区，不包含真实 API Key、项目代码或个人路径。
 

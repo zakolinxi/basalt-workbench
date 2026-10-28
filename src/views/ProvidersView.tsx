@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import {
+  Check,
+  ChevronDown,
   Copy,
   KeyRound,
   Plus,
   RefreshCw,
   Save,
   ShieldCheck,
+  Star,
   Trash2,
   Wifi,
   X,
@@ -16,9 +19,9 @@ import { useAppStore } from "../lib/store";
 import {
   capabilityLabel,
   capabilityStateLabel,
-  defaultModelFor,
   providerProtocolLabel,
 } from "../lib/format";
+import { normalizeBaseUrl } from "../lib/baseUrl";
 import type {
   CapState,
   ModelCapabilities,
@@ -67,6 +70,74 @@ const CAP_STATES: CapState[] = [
   "failed",
   "unavailable",
 ];
+
+type CapKey = (typeof CAPABILITIES)[number];
+type DefaultModelKey =
+  | "defaultChatModel"
+  | "defaultVisionModel"
+  | "defaultImageModel";
+
+const CAP_GROUPS: { title: string; keys: CapKey[] }[] = [
+  { title: "对话与输出", keys: ["chat", "stream", "json", "longContext"] },
+  { title: "工具与推理", keys: ["tools", "multiTool", "reasoning"] },
+  { title: "视觉与图像", keys: ["vision", "imageGen", "imageEdit"] },
+];
+
+const CAP_HINTS: Record<CapKey, string> = {
+  chat: "基础对话",
+  stream: "流式返回",
+  tools: "函数与工具调用",
+  vision: "图片输入",
+  imageGen: "文本生成图片",
+  imageEdit: "参考图编辑",
+  json: "结构化输出",
+  longContext: "长上下文窗口",
+  multiTool: "连续多轮工具",
+  reasoning: "思考强度档位",
+};
+
+const CAPS_BY_CATEGORY: Record<"chat" | "image", CapKey[]> = {
+  chat: [
+    "chat",
+    "stream",
+    "json",
+    "longContext",
+    "tools",
+    "multiTool",
+    "reasoning",
+    "vision",
+  ],
+  image: ["imageGen", "imageEdit", "vision"],
+};
+
+const SUMMARY_CAPS: Record<"chat" | "image", CapKey[]> = {
+  chat: ["tools", "vision", "reasoning", "longContext"],
+  image: ["imageGen", "imageEdit", "vision"],
+};
+
+const CONTEXT_PRESETS = [
+  { label: "32K", value: 32_000 },
+  { label: "128K", value: 128_000 },
+  { label: "200K", value: 200_000 },
+  { label: "1M", value: 1_000_000 },
+];
+
+const SOURCE_LABELS: Record<string, string> = {
+  preset: "预置",
+  api: "接口",
+  manual: "手动",
+};
+
+function trimNumber(value: number): string {
+  return Number(value.toFixed(2)).toString();
+}
+
+function formatContextLength(value?: number | null): string {
+  if (!value || value <= 0) return "未设置";
+  if (value >= 1_000_000) return `${trimNumber(value / 1_000_000)}M`;
+  if (value >= 1000) return `${trimNumber(value / 1000)}K`;
+  return value.toLocaleString("en-US");
+}
 
 function chatCaps(stream: boolean): ModelCapabilities {
   return {
@@ -148,7 +219,14 @@ export function ProvidersView() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<ProviderTestResult | null>(null);
-  const [modelDraft, setModelDraft] = useState({ id: "", name: "" });
+  const [modelDraft, setModelDraft] = useState({
+    id: "",
+    name: "",
+    context: "",
+  });
+  const [expandedModel, setExpandedModel] = useState<number | null>(null);
+  const [addingModel, setAddingModel] = useState(false);
+  const [baseUrlNote, setBaseUrlNote] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Provider | null>(null);
 
   const selected = providers.find((item) => item.id === selectedId) ?? null;
@@ -160,6 +238,10 @@ export function ProvidersView() {
     setTestResult(null);
     setApiKey("");
     setClearKey(false);
+    setExpandedModel(null);
+    setAddingModel(false);
+    setBaseUrlNote(null);
+    setModelDraft({ id: "", name: "", context: "" });
     if (provider.isTemplate) {
       setForm(null);
       return;
@@ -185,6 +267,10 @@ export function ProvidersView() {
     setApiKey("");
     setClearKey(false);
     setTestResult(null);
+    setExpandedModel(null);
+    setAddingModel(false);
+    setBaseUrlNote(null);
+    setModelDraft({ id: "", name: "", context: "" });
   };
 
   const duplicate = async (provider: Provider) => {
@@ -199,6 +285,10 @@ export function ProvidersView() {
       setApiKey("");
       setClearKey(false);
       setTestResult(null);
+      setExpandedModel(null);
+      setAddingModel(false);
+      setBaseUrlNote(null);
+      setModelDraft({ id: "", name: "", context: "" });
       notify(
         "success",
         provider.isTemplate ? "已创建供应商" : "已创建供应商副本",
@@ -233,10 +323,26 @@ export function ProvidersView() {
     ) {
       throw new Error("自定义参数必须是 JSON 对象");
     }
+    const modelIds = new Set(form.models.map((model) => model.id));
+    const defaultChatModel =
+      form.defaultChatModel && modelIds.has(form.defaultChatModel)
+        ? form.defaultChatModel
+        : null;
+    const defaultVisionModel =
+      form.defaultVisionModel && modelIds.has(form.defaultVisionModel)
+        ? form.defaultVisionModel
+        : null;
+    const defaultImageModel =
+      form.defaultImageModel && modelIds.has(form.defaultImageModel)
+        ? form.defaultImageModel
+        : null;
     return {
       ...form,
       name: form.name.trim(),
-      baseUrl: form.baseUrl.trim(),
+      baseUrl: normalizeBaseUrl(form.baseUrl, form.protocol),
+      defaultChatModel,
+      defaultVisionModel,
+      defaultImageModel,
       headers,
       params,
       apiKey: apiKey.trim() || undefined,
@@ -260,6 +366,7 @@ export function ProvidersView() {
       setSelectedId(saved.id);
       setApiKey("");
       setClearKey(false);
+      setBaseUrlNote(null);
       setHeadersText(JSON.stringify(saved.headers ?? {}, null, 2));
       setParamsText(JSON.stringify(saved.params ?? {}, null, 2));
       if (!silent) notify("success", "供应商配置已保存", saved.name);
@@ -284,6 +391,8 @@ export function ProvidersView() {
         setForm((current) =>
           current ? { ...current, models: result.models! } : current,
         );
+        setExpandedModel(null);
+        setAddingModel(false);
         await refreshProviders();
       }
       notify(
@@ -309,18 +418,27 @@ export function ProvidersView() {
   const updateModel = (index: number, patch: Partial<ProviderModel>) => {
     setForm((current) => {
       if (!current) return current;
+      const previous = current.models[index];
       const models = current.models.map((model, i) =>
         i === index ? { ...model, ...patch } : model,
       );
-      return { ...current, models };
+      if (!previous || patch.id === undefined || patch.id === previous.id) {
+        return { ...current, models };
+      }
+      const next = patch.id;
+      const rename = (value: string | null | undefined) =>
+        value && value === previous.id && next ? next : (value ?? null);
+      return {
+        ...current,
+        models,
+        defaultChatModel: rename(current.defaultChatModel),
+        defaultVisionModel: rename(current.defaultVisionModel),
+        defaultImageModel: rename(current.defaultImageModel),
+      };
     });
   };
 
-  const updateCapability = (
-    index: number,
-    key: (typeof CAPABILITIES)[number],
-    value: CapState,
-  ) => {
+  const updateCapability = (index: number, key: CapKey, value: CapState) => {
     setForm((current) => {
       if (!current) return current;
       const models = current.models.map((model, i) =>
@@ -331,6 +449,22 @@ export function ProvidersView() {
             }
           : model,
       );
+      return { ...current, models };
+    });
+  };
+
+  const setAllCapabilities = (index: number, value: CapState) => {
+    setForm((current) => {
+      if (!current) return current;
+      const allowed = CAPS_BY_CATEGORY[current.category];
+      const models = current.models.map((model, i) => {
+        if (i !== index) return model;
+        const capabilities = { ...model.capabilities };
+        for (const key of allowed) {
+          capabilities[key] = value;
+        }
+        return { ...model, capabilities };
+      });
       return { ...current, models };
     });
   };
@@ -346,14 +480,26 @@ export function ProvidersView() {
       notify("warning", "模型 ID 已存在");
       return;
     }
+    const contextLength = modelDraft.context.trim()
+      ? Number(modelDraft.context)
+      : null;
+    if (
+      contextLength !== null &&
+      (!Number.isFinite(contextLength) || contextLength <= 0)
+    ) {
+      notify("warning", "上下文窗口必须是正数");
+      return;
+    }
     const capabilities =
       form.category === "image" ? imageCaps() : chatCaps(form.stream);
     const model: ProviderModel = {
       id,
       name: modelDraft.name.trim() || id,
+      contextLength,
       capabilities,
       source: "manual",
     };
+    const nextIndex = form.models.length;
     setForm({
       ...form,
       models: [...form.models, model],
@@ -366,7 +512,40 @@ export function ProvidersView() {
           ? id
           : form.defaultImageModel,
     });
-    setModelDraft({ id: "", name: "" });
+    setExpandedModel(nextIndex);
+    setAddingModel(false);
+    setModelDraft({ id: "", name: "", context: "" });
+  };
+
+  const startAddingModel = () => {
+    setAddingModel(true);
+    setExpandedModel(null);
+    setModelDraft({ id: "", name: "", context: "" });
+  };
+
+  const cancelAddingModel = () => {
+    setAddingModel(false);
+    setModelDraft({ id: "", name: "", context: "" });
+  };
+
+  const toggleDefaultModel = (index: number, key: DefaultModelKey) => {
+    if (!form) return;
+    const id = form.models[index]?.id;
+    if (!id) return;
+    const patch: Partial<ProviderInput> = {};
+    patch[key] = form[key] === id ? null : id;
+    updateForm(patch);
+  };
+
+  const commitBaseUrl = () => {
+    if (!form) return;
+    const normalized = normalizeBaseUrl(form.baseUrl, form.protocol);
+    if (normalized === form.baseUrl) {
+      setBaseUrlNote(null);
+      return;
+    }
+    updateForm({ baseUrl: normalized });
+    setBaseUrlNote(normalized ? `已自动补全为 ${normalized}` : null);
   };
 
   const removeModel = (index: number) => {
@@ -382,6 +561,15 @@ export function ProvidersView() {
       defaultImageModel:
         form.defaultImageModel === removed.id ? null : form.defaultImageModel,
     });
+    setExpandedModel((current) =>
+      current === null
+        ? null
+        : current === index
+          ? null
+          : current > index
+            ? current - 1
+            : current,
+    );
   };
 
   const protocolOptions =
@@ -569,16 +757,17 @@ export function ProvidersView() {
                             value={form.category}
                             onChange={(event) => {
                               const category = event.target.value as "chat" | "image";
+                              const protocol =
+                                category === "image" ? "openai_images" : "openai_chat";
                               updateForm({
                                 category,
-                                protocol:
-                                  category === "image"
-                                    ? "openai_images"
-                                    : "openai_chat",
+                                protocol,
+                                baseUrl: normalizeBaseUrl(form.baseUrl, protocol),
                                 defaultChatModel: null,
                                 defaultVisionModel: null,
                                 defaultImageModel: null,
                               });
+                              setBaseUrlNote(null);
                             }}
                           >
                             <option value="chat">对话 / Agent</option>
@@ -588,9 +777,19 @@ export function ProvidersView() {
                         <Field label="协议">
                           <Select
                             value={form.protocol}
-                            onChange={(event) =>
-                              updateForm({ protocol: event.target.value })
-                            }
+                            onChange={(event) => {
+                              const protocol = event.target.value;
+                              const baseUrl = normalizeBaseUrl(
+                                form.baseUrl,
+                                protocol,
+                              );
+                              updateForm({ protocol, baseUrl });
+                              setBaseUrlNote(
+                                baseUrl && baseUrl !== form.baseUrl
+                                  ? `已自动补全为 ${baseUrl}`
+                                  : null,
+                              );
+                            }}
                           >
                             {protocolOptions.map((protocol) => (
                               <option value={protocol} key={protocol}>
@@ -601,18 +800,29 @@ export function ProvidersView() {
                         </Field>
                         <Field
                           label="API Base URL"
-                          hint="需要包含版本路径，例如 https://api.openai.com/v1。Ollama 填根地址。"
+                          hint={
+                            baseUrlNote ? (
+                              <span className="base-url-note">{baseUrlNote}</span>
+                            ) : (
+                              "只填域名即可自动补全 /v1；Gemini 补 /v1beta，Ollama 保留根地址。"
+                            )
+                          }
                         >
                           <Input
                             className="mono"
                             value={form.baseUrl}
-                            onChange={(event) =>
-                              updateForm({ baseUrl: event.target.value })
-                            }
+                            onChange={(event) => {
+                              setBaseUrlNote(null);
+                              updateForm({ baseUrl: event.target.value });
+                            }}
+                            onBlur={commitBaseUrl}
                             placeholder={
                               form.protocol === "ollama"
                                 ? "http://127.0.0.1:11434"
-                                : "https://…/v1"
+                                : form.protocol === "gemini" ||
+                                    form.protocol === "gemini_images"
+                                  ? "https://generativelanguage.googleapis.com"
+                                  : "https://api.deepseek.com"
                             }
                           />
                         </Field>
@@ -709,189 +919,156 @@ export function ProvidersView() {
 
                   <section className="form-section">
                     <div className="form-section-head">
-                      模型与能力矩阵
+                      模型与能力
                       <span className="right">
-                        <span className="mono" style={{ fontSize: 9, color: "var(--fg-3)" }}>
+                        <span
+                          className="mono"
+                          style={{ fontSize: 9, color: "var(--fg-3)" }}
+                        >
                           {form.models.length} MODELS
                         </span>
                       </span>
                     </div>
                     <div className="form-section-body">
-                      <div className="model-add">
-                        <Input
-                          className="mono"
-                          placeholder="模型 ID，例如 gpt-4.1"
-                          value={modelDraft.id}
-                          onChange={(event) =>
-                            setModelDraft((current) => ({
-                              ...current,
-                              id: event.target.value,
-                            }))
-                          }
-                        />
-                        <Input
-                          placeholder="显示名称（可选）"
-                          value={modelDraft.name}
-                          onChange={(event) =>
-                            setModelDraft((current) => ({
-                              ...current,
-                              name: event.target.value,
-                            }))
-                          }
-                        />
-                        <Button onClick={addModel}>
+                      <div className="model-section-intro">
+                        <div>
+                          <div className="model-section-title">模型列表</div>
+                          <div className="field-hint">
+                            模型 ID 用于接口调用；上下文窗口用于长度估算。能力状态可手动标记，真实调用后会继续更新。
+                          </div>
+                        </div>
+                        <Button size="sm" onClick={startAddingModel}>
                           <Plus size={12} /> 添加模型
                         </Button>
                       </div>
+
+                      {addingModel ? (
+                        <div className="model-add-card">
+                          <div className="model-add-head">
+                            <div>
+                              <div className="model-add-title">添加模型</div>
+                              <div className="field-hint">
+                                先填模型 ID，名称、上下文和能力都可以稍后调整。
+                              </div>
+                            </div>
+                            <IconButton
+                              label="关闭添加面板"
+                              size="sm"
+                              onClick={cancelAddingModel}
+                            >
+                              <X size={12} />
+                            </IconButton>
+                          </div>
+                          <div className="model-add-fields">
+                            <Field label="模型 ID">
+                              <Input
+                                autoFocus
+                                className="mono"
+                                placeholder="例如 gpt-4.1"
+                                value={modelDraft.id}
+                                onChange={(event) =>
+                                  setModelDraft((current) => ({
+                                    ...current,
+                                    id: event.target.value,
+                                  }))
+                                }
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") addModel();
+                                }}
+                              />
+                            </Field>
+                            <Field label="显示名称（可选）">
+                              <Input
+                                placeholder="默认与模型 ID 相同"
+                                value={modelDraft.name}
+                                onChange={(event) =>
+                                  setModelDraft((current) => ({
+                                    ...current,
+                                    name: event.target.value,
+                                  }))
+                                }
+                              />
+                            </Field>
+                            <Field label="上下文窗口（tokens）">
+                              <div className="context-input">
+                                <Input
+                                  type="number"
+                                  min={1024}
+                                  step={1024}
+                                  className="mono"
+                                  placeholder="例如 128000"
+                                  value={modelDraft.context}
+                                  onChange={(event) =>
+                                    setModelDraft((current) => ({
+                                      ...current,
+                                      context: event.target.value,
+                                    }))
+                                  }
+                                />
+                                <span className="context-unit">tokens</span>
+                              </div>
+                            </Field>
+                          </div>
+                          <div className="model-add-actions">
+                            <Button
+                              size="sm"
+                              variant="primary"
+                              onClick={addModel}
+                            >
+                              <Plus size={12} /> 添加
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={cancelAddingModel}
+                            >
+                              取消
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+
                       <div className="model-list">
-                        {form.models.length === 0 ? (
-                          <div className="field-hint">
-                            还没有模型。可手动添加，或保存后点击「测试连接 / 拉取模型」从接口获取。
+                        {form.models.length === 0 && !addingModel ? (
+                          <div className="model-empty">
+                            <div className="model-empty-title">还没有模型</div>
+                            <div className="field-hint">
+                              手动添加模型，或保存后点击「测试连接 / 拉取模型」自动导入。
+                            </div>
+                            <Button size="sm" onClick={startAddingModel}>
+                              <Plus size={12} /> 添加模型
+                            </Button>
                           </div>
                         ) : null}
                         {form.models.map((model, index) => (
-                          <div className="model-row" key={`${model.id}-${index}`}>
-                            <div className="model-row-head">
-                              <Input
-                                className="mono"
-                                value={model.id}
-                                onChange={(event) =>
-                                  updateModel(index, { id: event.target.value })
-                                }
-                                style={{ minHeight: 24, height: 24, padding: "2px 6px" }}
-                              />
-                              <Input
-                                value={model.name}
-                                onChange={(event) =>
-                                  updateModel(index, { name: event.target.value })
-                                }
-                                style={{ minHeight: 24, height: 24, padding: "2px 6px" }}
-                              />
-                              <Badge>{model.source}</Badge>
-                              <Input
-                                type="number"
-                                min={1}
-                                className="mono"
-                                title="上下文窗口（tokens）"
-                                placeholder="ctx"
-                                value={model.contextLength ?? ""}
-                                onChange={(event) =>
-                                  updateModel(index, {
-                                    contextLength: event.target.value
-                                      ? Number(event.target.value)
-                                      : null,
-                                  })
-                                }
-                                style={{
-                                  width: 78,
-                                  height: 24,
-                                  minHeight: 24,
-                                  padding: "2px 6px",
-                                  fontSize: 10,
-                                }}
-                              />
-                              <IconButton
-                                label="删除模型"
-                                size="sm"
-                                onClick={() => removeModel(index)}
-                              >
-                                <Trash2 size={11} />
-                              </IconButton>
-                            </div>
-                            <div className="cap-grid">
-                              {CAPABILITIES.map((capability) => (
-                                <label className="cap-item" key={capability}>
-                                  <span className="cap-label">
-                                    {capabilityLabel(capability)}
-                                  </span>
-                                  <select
-                                    data-state={
-                                      model.capabilities[capability]
-                                    }
-                                    value={model.capabilities[capability]}
-                                    onChange={(event) =>
-                                      updateCapability(
-                                        index,
-                                        capability,
-                                        event.target.value as CapState,
-                                      )
-                                    }
-                                  >
-                                    {CAP_STATES.map((state) => (
-                                      <option value={state} key={state}>
-                                        {capabilityStateLabel(state)}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
+                          <ModelCard
+                            key={`${model.id}-${index}`}
+                            model={model}
+                            category={form.category}
+                            expanded={expandedModel === index}
+                            defaultChat={form.defaultChatModel === model.id}
+                            defaultVision={form.defaultVisionModel === model.id}
+                            defaultImage={form.defaultImageModel === model.id}
+                            onToggle={() =>
+                              setExpandedModel((current) =>
+                                current === index ? null : index,
+                              )
+                            }
+                            onChange={(patch) => updateModel(index, patch)}
+                            onCapability={(key, value) =>
+                              updateCapability(index, key, value)
+                            }
+                            onBulkCaps={(value) =>
+                              setAllCapabilities(index, value)
+                            }
+                            onDefault={(key) => toggleDefaultModel(index, key)}
+                            onRemove={() => removeModel(index)}
+                          />
                         ))}
                       </div>
-                      {form.models.length > 0 ? (
-                        <div className="form-grid three">
-                          {form.category === "chat" ? (
-                            <>
-                              <Field label="默认聊天模型">
-                                <Select
-                                  value={form.defaultChatModel ?? ""}
-                                  onChange={(event) =>
-                                    updateForm({
-                                      defaultChatModel: event.target.value || null,
-                                    })
-                                  }
-                                >
-                                  <option value="">未设置</option>
-                                  {form.models.map((model) => (
-                                    <option value={model.id} key={model.id}>
-                                      {model.id}
-                                    </option>
-                                  ))}
-                                </Select>
-                              </Field>
-                              <Field label="默认视觉模型">
-                                <Select
-                                  value={form.defaultVisionModel ?? ""}
-                                  onChange={(event) =>
-                                    updateForm({
-                                      defaultVisionModel: event.target.value || null,
-                                    })
-                                  }
-                                >
-                                  <option value="">未设置</option>
-                                  {form.models.map((model) => (
-                                    <option value={model.id} key={model.id}>
-                                      {model.id}
-                                    </option>
-                                  ))}
-                                </Select>
-                              </Field>
-                            </>
-                          ) : (
-                            <Field label="默认图像模型">
-                              <Select
-                                value={form.defaultImageModel ?? ""}
-                                onChange={(event) =>
-                                  updateForm({
-                                    defaultImageModel: event.target.value || null,
-                                  })
-                                }
-                              >
-                                <option value="">未设置</option>
-                                {form.models.map((model) => (
-                                  <option value={model.id} key={model.id}>
-                                    {model.id}
-                                  </option>
-                                ))}
-                              </Select>
-                            </Field>
-                          )}
-                        </div>
-                      ) : null}
+
                       <div className="field-hint">
-                        能力状态由接口元数据或真实调用验证，不会因为名称包含 GPT / Claude /
-                        Gemini 就默认可用。未验证能力可在 Agent 或图像工作区试用后自动标记。
+                        未验证表示允许尝试但尚未确认；不支持的能力不会出现在模型选择、工具调用和路由中。
                       </div>
                     </div>
                   </section>
@@ -980,6 +1157,287 @@ export function ProvidersView() {
             .catch((error) => notify("error", "删除失败", errorMessage(error)));
         }}
       />
+    </div>
+  );
+}
+
+function ModelCard({
+  model,
+  category,
+  expanded,
+  defaultChat,
+  defaultVision,
+  defaultImage,
+  onToggle,
+  onChange,
+  onCapability,
+  onBulkCaps,
+  onDefault,
+  onRemove,
+}: {
+  model: ProviderModel;
+  category: "chat" | "image";
+  expanded: boolean;
+  defaultChat: boolean;
+  defaultVision: boolean;
+  defaultImage: boolean;
+  onToggle: () => void;
+  onChange: (patch: Partial<ProviderModel>) => void;
+  onCapability: (key: CapKey, value: CapState) => void;
+  onBulkCaps: (value: CapState) => void;
+  onDefault: (key: DefaultModelKey) => void;
+  onRemove: () => void;
+}) {
+  const allowed = CAPS_BY_CATEGORY[category];
+  const groups = CAP_GROUPS.map((group) => ({
+    title: group.title,
+    keys: group.keys.filter((key) => allowed.includes(key)),
+  })).filter((group) => group.keys.length > 0);
+  const summaryCaps = SUMMARY_CAPS[category].filter(
+    (key) => model.capabilities[key] !== "unsupported",
+  );
+  const initial = (model.name || model.id).trim().charAt(0).toUpperCase() || "M";
+  const context = formatContextLength(model.contextLength);
+
+  return (
+    <div className={clsx("model-card", expanded && "expanded")}>
+      <div className="model-card-head">
+        <button
+          type="button"
+          className="model-card-toggle"
+          onClick={onToggle}
+          aria-expanded={expanded}
+        >
+          <span className={clsx("model-card-avatar", expanded && "open")}>
+            {initial}
+          </span>
+          <span className="model-card-main">
+            <span className="model-card-title">
+              {model.name || model.id}
+              {defaultChat ? <Badge tone="info">默认对话</Badge> : null}
+              {defaultVision ? <Badge>默认视觉</Badge> : null}
+              {defaultImage ? <Badge>默认图像</Badge> : null}
+            </span>
+            <span className="model-card-sub">
+              <span className="model-card-id">{model.id}</span>
+              <span className="model-card-dot" />
+              <span>
+                {model.contextLength ? `${context} 上下文` : "上下文未设置"}
+              </span>
+              <span className="model-card-dot" />
+              <span>{SOURCE_LABELS[model.source] ?? model.source}</span>
+            </span>
+          </span>
+          <span className="model-card-chips">
+            {summaryCaps.map((key) => {
+              const state = model.capabilities[key];
+              return (
+                <span
+                  key={key}
+                  className={clsx("model-chip", state)}
+                  title={`${capabilityLabel(key)}：${capabilityStateLabel(state)}`}
+                >
+                  {capabilityLabel(key)}
+                </span>
+              );
+            })}
+          </span>
+          <span className={clsx("model-card-chevron", expanded && "open")}>
+            <ChevronDown size={14} />
+          </span>
+        </button>
+        <IconButton
+          label={`删除模型 ${model.name || model.id}`}
+          size="sm"
+          onClick={onRemove}
+        >
+          <Trash2 size={12} />
+        </IconButton>
+      </div>
+
+      {expanded ? (
+        <div className="model-card-body">
+          <div className="model-fields">
+            <Field label="模型 ID">
+              <Input
+                className="mono"
+                value={model.id}
+                onChange={(event) => onChange({ id: event.target.value })}
+              />
+            </Field>
+            <Field label="显示名称">
+              <Input
+                value={model.name}
+                onChange={(event) => onChange({ name: event.target.value })}
+              />
+            </Field>
+          </div>
+
+          <div className="field">
+            <span className="field-label">上下文窗口</span>
+            <div className="context-control">
+              <div className="context-input">
+                <Input
+                  type="number"
+                  min={1024}
+                  step={1024}
+                  className="mono"
+                  placeholder="例如 128000"
+                  value={model.contextLength ?? ""}
+                  onChange={(event) =>
+                    onChange({
+                      contextLength: event.target.value
+                        ? Number(event.target.value)
+                        : null,
+                    })
+                  }
+                />
+                <span className="context-unit">tokens</span>
+              </div>
+              <div className="context-presets">
+                {CONTEXT_PRESETS.map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    className={clsx(
+                      "context-chip",
+                      context === preset.label && "active",
+                    )}
+                    onClick={() => onChange({ contextLength: preset.value })}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              <span className="context-readout">
+                {model.contextLength ? `≈ ${context}` : "未设置"}
+              </span>
+            </div>
+            <span className="field-hint">
+              用于计算上下文占用和长上下文能力；留空表示未知。
+            </span>
+          </div>
+
+          <div className="cap-panel">
+            <div className="cap-panel-head">
+              <div className="cap-panel-copy">
+                <span className="cap-panel-title">能力状态</span>
+                <span className="field-hint">
+                  不确定时选「未验证」，真实调用后会更新。
+                </span>
+              </div>
+              <div className="cap-bulk-actions">
+                <button
+                  type="button"
+                  onClick={() => onBulkCaps("verified")}
+                >
+                  全部可用
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onBulkCaps("unverified")}
+                >
+                  全部未验证
+                </button>
+              </div>
+            </div>
+            <div className="cap-groups">
+              {groups.map((group) => (
+                <div className="cap-group" key={group.title}>
+                  <div className="cap-group-title">{group.title}</div>
+                  {group.keys.map((key) => {
+                    const state = model.capabilities[key];
+                    return (
+                      <label className="cap-row" key={key}>
+                        <span className="cap-meta">
+                          <span className="cap-name">
+                            {capabilityLabel(key)}
+                          </span>
+                          <span className="cap-desc">{CAP_HINTS[key]}</span>
+                        </span>
+                        <select
+                          className="cap-select"
+                          data-state={state}
+                          value={state}
+                          onChange={(event) =>
+                            onCapability(
+                              key,
+                              event.target.value as CapState,
+                            )
+                          }
+                        >
+                          {CAP_STATES.map((item) => (
+                            <option value={item} key={item}>
+                              {capabilityStateLabel(item)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="model-defaults">
+            <div>
+              <div className="field-label">默认用途</div>
+              <div className="field-hint">
+                选中后优先用于新会话或生成任务；再次点击可取消。
+              </div>
+            </div>
+            <div className="model-default-actions">
+              {category === "chat" ? (
+                <>
+                  <button
+                    type="button"
+                    className={clsx(
+                      "model-default-btn",
+                      defaultChat && "active",
+                    )}
+                    onClick={() => onDefault("defaultChatModel")}
+                  >
+                    {defaultChat ? (
+                      <Check size={11} />
+                    ) : (
+                      <Star size={11} />
+                    )}
+                    默认对话
+                  </button>
+                  <button
+                    type="button"
+                    className={clsx(
+                      "model-default-btn",
+                      defaultVision && "active",
+                    )}
+                    onClick={() => onDefault("defaultVisionModel")}
+                  >
+                    {defaultVision ? (
+                      <Check size={11} />
+                    ) : (
+                      <Star size={11} />
+                    )}
+                    默认视觉
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className={clsx(
+                    "model-default-btn",
+                    defaultImage && "active",
+                  )}
+                  onClick={() => onDefault("defaultImageModel")}
+                >
+                  {defaultImage ? <Check size={11} /> : <Star size={11} />}
+                  默认图像
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
