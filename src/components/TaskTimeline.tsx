@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Square,
   TestTube2,
+  Wrench,
   XCircle,
 } from "lucide-react";
 import clsx from "clsx";
@@ -19,6 +20,7 @@ import { useAppStore } from "../lib/store";
 import {
   TASK_STATUS_LABEL,
   formatDateTime,
+  toolLabel,
   toolTarget,
 } from "../lib/format";
 import type { TaskEvent, TaskStatus } from "../lib/types";
@@ -97,6 +99,49 @@ function buildToolViews(events: TaskEvent[]): ToolView[] {
   return [...map.values()];
 }
 
+function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)}s`;
+}
+
+function toolStatusLabel(status: string): string {
+  switch (status) {
+    case "running":
+      return "执行中";
+    case "pending":
+      return "等待";
+    case "failed":
+      return "失败";
+    case "denied":
+      return "已拒绝";
+    case "cancelled":
+      return "已取消";
+    case "completed":
+      return "完成";
+    default:
+      return status;
+  }
+}
+
+function ToolStatusIcon({ status }: { status: string }) {
+  if (status === "running" || status === "pending") {
+    return (
+      <Loader2
+        size={12}
+        style={{ animation: "spin .8s linear infinite", color: "var(--warn)" }}
+      />
+    );
+  }
+  if (status === "completed") {
+    return <CheckCircle2 size={12} className="text-ok" />;
+  }
+  if (status === "failed" || status === "denied") {
+    return <XCircle size={12} className="text-err" />;
+  }
+  return <Circle size={10} style={{ color: "var(--fg-3)" }} />;
+}
+
 export function TaskTimeline({ taskId }: { taskId: string }) {
   const task = useAppStore((state) => state.tasks.find((item) => item.id === taskId));
   const detail = useAppStore((state) => state.taskDetails[taskId]);
@@ -105,6 +150,7 @@ export function TaskTimeline({ taskId }: { taskId: string }) {
   const openTaskChangeDiff = useAppStore((state) => state.openTaskChangeDiff);
   const notify = useAppStore((state) => state.notify);
   const [expanded, setExpanded] = useState(true);
+  const [toolsOpen, setToolsOpen] = useState<boolean | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [reviewText, setReviewText] = useState("");
@@ -112,10 +158,34 @@ export function TaskTimeline({ taskId }: { taskId: string }) {
 
   useEffect(() => {
     setExpanded(true);
+    setToolsOpen(null);
   }, [taskId]);
 
   const events = detail?.events ?? [];
   const toolViews = useMemo(() => buildToolViews(events), [events]);
+  const toolStats = useMemo(() => {
+    const counts = new Map<string, number>();
+    let failed = 0;
+    let runningCount = 0;
+    let cancelled = 0;
+    let totalMs = 0;
+    for (const tool of toolViews) {
+      counts.set(tool.name, (counts.get(tool.name) ?? 0) + 1);
+      if (tool.status === "running" || tool.status === "pending") runningCount += 1;
+      if (tool.status === "failed" || tool.status === "denied") failed += 1;
+      if (tool.status === "cancelled") cancelled += 1;
+      totalMs += tool.durationMs ?? 0;
+    }
+    return {
+      counts: [...counts.entries()].sort(
+        (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+      ),
+      failed,
+      running: runningCount,
+      cancelled,
+      totalMs,
+    };
+  }, [toolViews]);
   const tests = useMemo(
     () => events.filter((event) => event.type === "TestCompleted"),
     [events],
@@ -124,6 +194,7 @@ export function TaskTimeline({ taskId }: { taskId: string }) {
   const steps = task?.plan ?? [];
   const status = (task?.status ?? "queued") as TaskStatus;
   const running = status === "running" || status === "waitingApproval";
+  const toolsExpanded = toolsOpen ?? running;
   const canResume = ["interrupted", "failed", "cancelled"].includes(status);
   const active = running || status === "queued";
 
@@ -248,67 +319,140 @@ export function TaskTimeline({ taskId }: { taskId: string }) {
           ) : null}
 
           {toolViews.length > 0 ? (
-            <div>
-              <div className="section-label" style={{ marginBottom: 5 }}>
-                TOOL CALLS · {toolViews.length}
-              </div>
-              <div className="tool-cards">
-                {toolViews.map((tool) => {
-                  const failed = ["failed", "denied", "cancelled"].includes(tool.status);
-                  const showOutput =
-                    tool.output &&
-                    (failed ||
-                      [
-                        "run_command",
-                        "run_tests",
-                        "web_search",
-                        "fetch_url",
-                        "spawn_subagent",
-                      ].includes(tool.name));
-                  return (
-                    <details className="tool-card" key={tool.callId}>
-                      <summary className="tool-card-head">
-                        <ChevronRight size={10} style={{ color: "var(--fg-3)" }} />
-                        <span className="tool-name">{tool.name}</span>
-                        <span className="tool-target">{toolTarget(tool.name, tool.args)}</span>
-                        {tool.durationMs ? (
-                          <span className="mono" style={{ fontSize: 8, color: "var(--fg-3)" }}>
-                            {tool.durationMs}ms
+            <div className="tool-run">
+              <button
+                type="button"
+                className="tool-run-summary"
+                onClick={() => setToolsOpen(!toolsExpanded)}
+                aria-expanded={toolsExpanded}
+              >
+                <span className="tool-run-icon">
+                  <Wrench size={13} />
+                </span>
+                <span className="tool-run-main">
+                  <span className="tool-run-top">
+                    <span className="tool-run-title">工具调用</span>
+                    <span className="tool-run-count">{toolViews.length} 次</span>
+                    <span
+                      className={clsx(
+                        "tool-run-state",
+                        toolStats.running > 0 && "running",
+                        toolStats.failed > 0 && "failed",
+                      )}
+                    >
+                      {toolStats.running > 0 ? (
+                        <>
+                          <Loader2
+                            size={10}
+                            style={{ animation: "spin .8s linear infinite" }}
+                          />
+                          执行中
+                        </>
+                      ) : toolStats.failed > 0 ? (
+                        `${toolStats.failed} 个失败`
+                      ) : toolStats.cancelled > 0 ? (
+                        "部分取消"
+                      ) : (
+                        "全部完成"
+                      )}
+                    </span>
+                    {toolStats.totalMs > 0 ? (
+                      <span className="tool-run-time">
+                        {formatDuration(toolStats.totalMs)}
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="tool-run-chips">
+                    {toolStats.counts.map(([name, count]) => (
+                      <span className="tool-chip" key={name}>
+                        {toolLabel(name)}
+                        <span className="n">×{count}</span>
+                      </span>
+                    ))}
+                  </span>
+                </span>
+                <ChevronDown
+                  size={14}
+                  className={clsx(
+                    "tool-run-chevron",
+                    toolsExpanded && "open",
+                  )}
+                />
+              </button>
+              {toolsExpanded ? (
+                <div className="tool-run-body">
+                  {toolViews.map((tool, index) => {
+                    const failed = ["failed", "denied"].includes(tool.status);
+                    const showOutput =
+                      tool.output &&
+                      (failed ||
+                        [
+                          "run_command",
+                          "run_tests",
+                          "web_search",
+                          "fetch_url",
+                          "spawn_subagent",
+                        ].includes(tool.name));
+                    return (
+                      <details className="tool-step" key={tool.callId}>
+                        <summary className="tool-step-head">
+                          <span className="tool-step-index">
+                            {String(index + 1).padStart(2, "0")}
                           </span>
-                        ) : null}
-                        <span className={clsx("status", tool.status)}>{tool.status}</span>
-                      </summary>
-                      <div className="tool-card-body">
-                        <div className="tool-meta">
-                          <span>ARGS</span>
-                          <span
-                            style={{
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                              maxWidth: "90%",
-                            }}
-                          >
-                            {JSON.stringify(tool.args)}
+                          <span className="tool-step-icon">
+                            <ToolStatusIcon status={tool.status} />
                           </span>
+                          <span className="tool-step-name" title={tool.name}>
+                            {toolLabel(tool.name)}
+                          </span>
+                          <span className="tool-step-target">
+                            {toolTarget(tool.name, tool.args)}
+                          </span>
+                          {tool.status !== "completed" ? (
+                            <span
+                              className={clsx(
+                                "tool-step-state",
+                                tool.status,
+                              )}
+                            >
+                              {toolStatusLabel(tool.status)}
+                            </span>
+                          ) : null}
+                          {tool.durationMs ? (
+                            <span className="tool-step-time">
+                              {formatDuration(tool.durationMs)}
+                            </span>
+                          ) : null}
+                          <ChevronRight
+                            size={10}
+                            className="tool-step-chevron"
+                          />
+                        </summary>
+                        <div className="tool-step-body">
+                          <div className="tool-step-args">
+                            <span className="k">参数</span>
+                            <code title={JSON.stringify(tool.args)}>
+                              {JSON.stringify(tool.args)}
+                            </code>
+                          </div>
+                          {tool.summary ? (
+                            <div className="tool-step-summary">
+                              {tool.summary}
+                            </div>
+                          ) : null}
+                          {showOutput ? (
+                            <div className="tool-output">
+                              {tool.output.length > 8000
+                                ? `${tool.output.slice(0, 8000)}\n…（输出已截断）`
+                                : tool.output}
+                            </div>
+                          ) : null}
                         </div>
-                        {tool.summary ? (
-                          <div style={{ fontSize: 11, color: "var(--fg-1)", marginBottom: 5 }}>
-                            {tool.summary}
-                          </div>
-                        ) : null}
-                        {showOutput ? (
-                          <div className="tool-output">
-                            {tool.output.length > 8000
-                              ? `${tool.output.slice(0, 8000)}\n…（输出已截断）`
-                              : tool.output}
-                          </div>
-                        ) : null}
-                      </div>
-                    </details>
-                  );
-                })}
-              </div>
+                      </details>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -377,6 +521,12 @@ export function TaskTimeline({ taskId }: { taskId: string }) {
           ) : null}
           {task.status === "failed" && task.error ? (
             <div className="timeline-error">{task.error}</div>
+          ) : null}
+          {status === "interrupted" ? (
+            <div className="timeline-interrupted">
+              {task.error ||
+                "任务已中断，进度与变更已保留。点击「继续」接着执行。"}
+            </div>
           ) : null}
           {status === "queued" ? (
             <div style={{ fontSize: 11, color: "var(--fg-3)" }}>

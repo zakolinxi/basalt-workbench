@@ -21,8 +21,9 @@ use crate::events::{finish_task, push_task_event, set_task_status};
 use crate::files::{canonical_root, truncate_chars};
 use crate::messaging;
 use crate::models::{
-    ChatEvent, Message, Task, CAP_UNSUPPORTED, CAP_VERIFIED, TASK_CANCELLED, TASK_COMPLETED,
-    TASK_FAILED, TASK_QUEUED, TASK_RUNNING, TASK_WAITING,
+    ChatEvent, Message, Task, CAP_UNSUPPORTED, CAP_VERIFIED, MAX_AGENT_MAX_ITERATIONS,
+    TASK_CANCELLED, TASK_COMPLETED, TASK_FAILED, TASK_INTERRUPTED, TASK_QUEUED, TASK_RUNNING,
+    TASK_WAITING,
 };
 use crate::policy::{evaluate, PolicyDecision};
 use crate::providers::{
@@ -216,7 +217,9 @@ async fn run_task(
     }
 
     let tools = tools::schemas();
-    let max_iterations = settings.agent_max_iterations.clamp(1, 50) as usize;
+    let max_iterations = settings
+        .agent_max_iterations
+        .clamp(1, MAX_AGENT_MAX_ITERATIONS) as usize;
     let mut last_text = String::new();
 
     for iteration in 0..max_iterations {
@@ -419,8 +422,8 @@ async fn run_task(
         }
     }
 
-    Err(AppError::msg(format!(
-        "达到最大执行轮次 {max_iterations}，任务未完成。可在审查当前变更后继续执行。"
+    Err(AppError::RoundLimit(format!(
+        "已达到安全执行上限 {max_iterations} 轮。任务进度与变更已保留，可在设置中提高上限后点击「继续」接着执行。"
     )))
 }
 
@@ -754,6 +757,21 @@ fn finalize(state: &AppState, task_id: &str, result: AppResult<Option<String>>) 
                 TASK_CANCELLED,
                 Some("任务已由用户取消。未完成的工具调用不会再执行。"),
                 Some("任务已取消"),
+            );
+        }
+        Err(err) if err.is_round_limit() => {
+            let conn = state.db();
+            let _ = conn.execute(
+                "UPDATE tool_calls SET status = 'cancelled', completed_at = ?2 WHERE task_id = ?1 AND status IN ('pending', 'waiting_approval', 'running')",
+                params![task_id, now()],
+            );
+            drop(conn);
+            finish_task(
+                state,
+                task_id,
+                TASK_INTERRUPTED,
+                Some("已达到安全执行上限，进度与变更已保留。提高上限后点击「继续」可以接着执行。"),
+                Some(&err.user_message()),
             );
         }
         Err(err) => {

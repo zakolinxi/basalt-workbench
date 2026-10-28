@@ -20,7 +20,8 @@ GitHub：<https://github.com/zakolinxi/basalt-workbench>
   按协议自动映射。
 - **Agent 编程闭环**：目标 → 计划 → 工具调用 → 审批 → 文件修改 → Diff → 终端测试 →
   失败修复 → 报告。内置联网搜索、网页读取与只读子代理；所有展示都来自真实工具事件，
-  不使用伪造进度。
+  不使用伪造进度。工具调用按批次合并为可折叠执行卡，默认 200 轮安全上限，
+  达到后暂停并保留进度，可继续执行。
 - **审批与安全**：写入与命令默认等待批准；路径穿越、符号链接逃逸、危险命令、编码载荷、
   注册表 / 提权 / 磁盘操作会被策略拒绝。API Key 存储在 Windows 凭据管理器。
 - **真实变更审查**：每次 Agent 写入生成变更快照；支持统一 / 并排 Diff、单文件接受、
@@ -55,9 +56,9 @@ npm run tauri build
 
 本机已验证产物（见 `release/`）：
 
-- `release/Basalt.exe` — 免安装 EXE（20.34 MiB）
-- `release/Basalt_0.1.5_x64-setup.exe` — NSIS 安装包（7.55 MiB）
-- `release/Basalt-0.1.5-x64-portable.zip` — 便携压缩包（9.11 MiB）
+- `release/Basalt.exe` — 免安装 EXE（20.32 MiB）
+- `release/Basalt_0.1.6_x64-setup.exe` — NSIS 安装包（7.55 MiB）
+- `release/Basalt-0.1.6-x64-portable.zip` — 便携压缩包（9.10 MiB）
 - `release/SHA256SUMS.txt` — 校验和
 
 原始构建位置：`src-tauri/target/release/basalt.exe`、

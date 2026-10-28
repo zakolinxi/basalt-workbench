@@ -132,7 +132,9 @@ export function TaskStatusBadge({ status }: { status: TaskStatus | string }) {
           ? "warn"
           : status === "waitingApproval"
             ? "info"
-            : undefined;
+            : status === "interrupted"
+              ? "warn"
+              : undefined;
   const label =
     status === "completed"
       ? "已完成"

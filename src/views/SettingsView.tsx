@@ -332,20 +332,20 @@ export function SettingsView() {
               <div className="body">
                 <div className="setting-row">
                   <div className="copy">
-                    <div className="title">最大执行轮次</div>
+                    <div className="title">Agent 安全上限（轮）</div>
                     <div className="desc">
-                      工具调用与模型响应循环的硬上限，避免失去控制的长时间执行。
+                      默认 200 轮，仅在超长任务或循环时触发。达到上限后任务会暂停并保留进度，提高上限后点击「继续」接着执行。
                     </div>
                   </div>
                   <div className="control">
                     <Input
                       type="number"
                       min={1}
-                      max={50}
+                      max={1000}
                       value={settings.agentMaxIterations}
                       onChange={(event) =>
                         updateSettings({
-                          agentMaxIterations: Number(event.target.value) || 20,
+                          agentMaxIterations: Number(event.target.value) || 200,
                         })
                       }
                     />

@@ -36,6 +36,39 @@ fn migrate(conn: &Connection) -> AppResult<()> {
             conn.execute(ddl, [])?;
         }
     }
+    migrate_agent_budget(conn)?;
+    Ok(())
+}
+
+fn migrate_agent_budget(conn: &Connection) -> AppResult<()> {
+    let migrated: Option<String> = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = 'agent_budget_v2'",
+            [],
+            |row| row.get(0),
+        )
+        .ok();
+    if migrated.is_some() {
+        return Ok(());
+    }
+    let mut settings = load_settings(conn);
+    if settings.agent_max_iterations <= 50 {
+        settings.agent_max_iterations = DEFAULT_AGENT_MAX_ITERATIONS;
+        save_settings(conn, &settings)?;
+    }
+    conn.execute(
+        "INSERT OR REPLACE INTO settings(key, value) VALUES('agent_budget_v2', '1')",
+        [],
+    )?;
+    conn.execute(
+        "UPDATE tasks SET status = ?1, error = ?2, updated_at = ?3
+         WHERE status = 'failed' AND error LIKE '达到最大执行轮次%'",
+        params![
+            TASK_INTERRUPTED,
+            "旧版执行轮次上限已解除，进度与变更已保留。点击「继续」接着执行。",
+            now()
+        ],
+    )?;
     Ok(())
 }
 
@@ -632,7 +665,7 @@ mod tests {
             .any(|p| p.id.starts_with("builtin-mock-") || p.protocol.starts_with("mock")));
         assert!(providers.iter().any(|p| p.is_template));
         let settings = load_settings(&conn);
-        assert_eq!(settings.agent_max_iterations, 20);
+        assert_eq!(settings.agent_max_iterations, DEFAULT_AGENT_MAX_ITERATIONS);
         assert!(settings.routing.chat.provider_id.is_empty());
         assert!(settings.routing.image.provider_id.is_empty());
     }
@@ -705,10 +738,47 @@ mod tests {
         let conn = open_db(dir.path()).unwrap();
         let mut settings = load_settings(&conn);
         settings.auto_approve_writes = true;
-        settings.agent_max_iterations = 33;
+        settings.agent_max_iterations = 333;
         save_settings(&conn, &settings).unwrap();
         let loaded = load_settings(&conn);
         assert!(loaded.auto_approve_writes);
-        assert_eq!(loaded.agent_max_iterations, 33);
+        assert_eq!(loaded.agent_max_iterations, 333);
+    }
+
+    #[test]
+    fn upgrades_legacy_agent_budget_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = open_db(dir.path()).unwrap();
+        conn.execute("DELETE FROM settings WHERE key = 'agent_budget_v2'", [])
+            .unwrap();
+        let mut settings = load_settings(&conn);
+        settings.agent_max_iterations = 20;
+        save_settings(&conn, &settings).unwrap();
+        conn.execute(
+            "INSERT INTO tasks(id, project_id, session_id, title, goal, status, provider_id,
+             model, plan_json, error, created_at, updated_at)
+             VALUES('t1', 'p1', 's1', 'task', 'goal', 'failed', 'pr1', 'm', '[]',
+             '达到最大执行轮次 20，任务未完成。可在审查当前变更后继续执行。', 'now', 'now')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let conn = open_db(dir.path()).unwrap();
+        assert_eq!(
+            load_settings(&conn).agent_max_iterations,
+            DEFAULT_AGENT_MAX_ITERATIONS
+        );
+        let status: String = conn
+            .query_row("SELECT status FROM tasks WHERE id = 't1'", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(status, TASK_INTERRUPTED);
+
+        let mut settings = load_settings(&conn);
+        settings.agent_max_iterations = 20;
+        save_settings(&conn, &settings).unwrap();
+        drop(conn);
+        let conn = open_db(dir.path()).unwrap();
+        assert_eq!(load_settings(&conn).agent_max_iterations, 20);
     }
 }

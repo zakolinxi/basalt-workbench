@@ -15,6 +15,9 @@ pub const TASK_FAILED: &str = "failed";
 pub const TASK_CANCELLED: &str = "cancelled";
 pub const TASK_INTERRUPTED: &str = "interrupted";
 
+pub const DEFAULT_AGENT_MAX_ITERATIONS: u32 = 200;
+pub const MAX_AGENT_MAX_ITERATIONS: u32 = 1000;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelCapabilities {
@@ -468,7 +471,7 @@ pub struct Settings {
 }
 
 pub fn default_user_agent() -> String {
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.5".into()
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.6".into()
 }
 
 pub const REASONING_EFFORTS: [&str; 8] = [
@@ -490,7 +493,7 @@ impl Default for Settings {
         Self {
             theme: "dark".into(),
             routing: Routing::default(),
-            agent_max_iterations: 20,
+            agent_max_iterations: DEFAULT_AGENT_MAX_ITERATIONS,
             auto_approve_writes: false,
             auto_approve_commands: false,
             terminal_shell: "powershell".into(),

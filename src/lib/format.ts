@@ -161,10 +161,36 @@ export function defaultModelFor(provider: Provider): string {
   );
 }
 
+const TOOL_LABELS: Record<string, string> = {
+  update_plan: "更新计划",
+  list_files: "列出文件",
+  search_files: "搜索文件",
+  read_file: "读取文件",
+  write_file: "写入文件",
+  apply_patch: "应用补丁",
+  git_status: "Git 状态",
+  git_diff: "Git 差异",
+  run_command: "运行命令",
+  run_tests: "运行测试",
+  web_search: "联网搜索",
+  fetch_url: "抓取网页",
+  spawn_subagent: "子代理",
+};
+
+export function toolLabel(name: string): string {
+  return TOOL_LABELS[name] ?? name;
+}
+
 export function toolTarget(name: string, args: Record<string, unknown>): string {
   if (name === "web_search") {
     const query = String(args.query ?? "");
     return query.length > 70 ? `${query.slice(0, 70)}…` : query;
+  }
+  if (name === "search_files") {
+    const query = String(args.query ?? "").trim();
+    const path = String(args.path ?? "").trim();
+    const text = [query, path].filter(Boolean).join(" · ");
+    return text.length > 70 ? `${text.slice(0, 70)}…` : text;
   }
   if (name === "fetch_url") {
     const url = String(args.url ?? "");

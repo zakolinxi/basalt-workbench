@@ -6,7 +6,7 @@ use tauri::State;
 
 use crate::db;
 use crate::error::{AppError, AppResult};
-use crate::models::{Bootstrap, Provider, Settings};
+use crate::models::{Bootstrap, Provider, Settings, MAX_AGENT_MAX_ITERATIONS};
 use crate::secrets;
 use crate::state::AppState;
 
@@ -61,7 +61,9 @@ pub fn settings_get(state: State<'_, AppState>) -> AppResult<Settings> {
 
 #[tauri::command]
 pub fn settings_set(state: State<'_, AppState>, mut settings: Settings) -> AppResult<Settings> {
-    settings.agent_max_iterations = settings.agent_max_iterations.clamp(1, 50);
+    settings.agent_max_iterations = settings
+        .agent_max_iterations
+        .clamp(1, MAX_AGENT_MAX_ITERATIONS);
     if !matches!(settings.theme.as_str(), "dark" | "light" | "system") {
         settings.theme = "dark".into();
     }

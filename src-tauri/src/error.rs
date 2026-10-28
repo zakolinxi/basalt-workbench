@@ -4,6 +4,8 @@ use serde::Serialize;
 pub enum AppError {
     #[error("{0}")]
     Msg(String),
+    #[error("{0}")]
+    RoundLimit(String),
     #[error("数据库错误：{0}")]
     Db(#[from] rusqlite::Error),
     #[error("文件系统错误：{0}")]
@@ -25,6 +27,10 @@ impl AppError {
 
     pub fn is_cancelled(&self) -> bool {
         matches!(self, Self::Cancelled) || self.to_string().contains("操作已取消")
+    }
+
+    pub fn is_round_limit(&self) -> bool {
+        matches!(self, Self::RoundLimit(_))
     }
 
     pub fn user_message(&self) -> String {
