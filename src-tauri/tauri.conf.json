@@ -1,0 +1,52 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Basalt",
+  "version": "0.1.0",
+  "identifier": "com.basalt.workbench",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Basalt Workbench",
+        "width": 1500,
+        "height": 940,
+        "minWidth": 1080,
+        "minHeight": 680,
+        "center": true,
+        "theme": "Dark",
+        "backgroundColor": "#0b0b0c",
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-eval' blob:; worker-src 'self' blob:; connect-src ipc: http://ipc.localhost",
+      "devCsp": "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-eval' blob:; worker-src 'self' blob:; connect-src ipc: http://ipc.localhost ws://localhost:1420 http://localhost:1420 ws://localhost:1421"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "publisher": "Basalt",
+    "category": "DeveloperTool",
+    "shortDescription": "Local-first AI engineering workbench",
+    "longDescription": "Basalt is a Windows desktop AI engineering workbench with multi-provider chat, an approval-gated coding agent, real terminal, diff review and an independent image studio.",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English", "SimpChinese"]
+      }
+    }
+  }
+}
