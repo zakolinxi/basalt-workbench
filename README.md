@@ -3,7 +3,8 @@
 **Basalt** 是一个本地优先的 Windows AI 编程工作台。它将多轮对话、审批门控的编程 Agent、
 真实终端、文件变更审查与独立图像生成整合到一个高密度桌面界面中。
 
-GitHub：<https://github.com/zakolinxi/basalt-workbench>
+GitHub：<https://github.com/zakolinxi/basalt-workbench>  
+下载最新版本：<https://github.com/zakolinxi/basalt-workbench/releases/latest>
 
 - 品牌：BASALT / 玄武
 - 定位：AI Engineering Workbench
