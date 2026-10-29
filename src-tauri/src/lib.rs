@@ -23,6 +23,7 @@ use state::AppState;
 pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let state = AppState::new(app.handle()).expect("Basalt 初始化失败：无法创建应用状态");
             state.log("INFO", "Basalt Workbench 启动");

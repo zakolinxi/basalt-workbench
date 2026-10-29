@@ -1,8 +1,11 @@
 import { LayoutGrid, Server, Image as ImageIcon, Settings, Sun, Moon, Laptop } from "lucide-react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
 import { useAppStore } from "../lib/store";
 import { resolveTheme } from "../lib/theme";
 import type { ThemeMode } from "../lib/types";
+
+const GITHUB_URL = "https://github.com/zakolinxi/basalt-workbench";
 
 const navItems = [
   { view: "workbench" as const, label: "工作台", icon: LayoutGrid },
@@ -13,6 +16,7 @@ const navItems = [
 export function Rail() {
   const view = useAppStore((state) => state.view);
   const setView = useAppStore((state) => state.setView);
+  const notify = useAppStore((state) => state.notify);
   const theme = useAppStore((state) => state.settings.theme);
   const setTheme = useAppStore((state) => state.setTheme);
   const pending = useAppStore((state) => state.pendingApprovals.length);
@@ -74,6 +78,31 @@ export function Rail() {
         })}
       </div>
       <div className="rail-spacer" />
+      <button
+        type="button"
+        className="rail-btn rail-github"
+        aria-label="GitHub 仓库"
+        onClick={() => {
+          void openUrl(GITHUB_URL).catch((error) =>
+            notify("error", "打开 GitHub 失败", String(error)),
+          );
+        }}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="17"
+          height="17"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+        </svg>
+        <span className="rail-tooltip">GitHub</span>
+      </button>
       <button
         className="rail-btn"
         title={`主题：${theme === "dark" ? "深色" : theme === "light" ? "浅色" : "跟随系统"}`}

@@ -187,7 +187,7 @@ const defaultSettings: Settings = {
   chatFontSize: 14,
   showHiddenFiles: false,
   userAgent:
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.9",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.10",
 };
 
 function upsertMessage(messages: Message[], message: Message): Message[] {
