@@ -5,10 +5,11 @@ import {
   ShieldCheck,
   TerminalSquare,
 } from "lucide-react";
+import clsx from "clsx";
 import { api, errorMessage } from "../lib/api";
 import { useAppStore } from "../lib/store";
 import { APPROVAL_OPTIONS, approvalMode, approvalPatch } from "../lib/permissions";
-import type { Route, Routing } from "../lib/types";
+import type { Route, Routing, ThemePalette } from "../lib/types";
 import {
   Badge,
   Button,
@@ -63,11 +64,21 @@ const IMAGE_ROUTES: { key: keyof Routing; label: string; description: string }[]
   },
 ];
 
+const PALETTES: { id: ThemePalette; label: string }[] = [
+  { id: "basalt", label: "玄武" },
+  { id: "forest", label: "森林" },
+  { id: "mint", label: "薄荷" },
+  { id: "honey", label: "蜜蜂" },
+  { id: "parchment", label: "羊皮纸" },
+];
+
 export function SettingsView() {
   const settings = useAppStore((state) => state.settings);
   const providers = useAppStore((state) => state.providers);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const saveSettings = useAppStore((state) => state.saveSettings);
+  const setTheme = useAppStore((state) => state.setTheme);
+  const setPalette = useAppStore((state) => state.setPalette);
   const cornerStyle = useAppStore((state) => state.cornerStyle);
   const setCornerStyle = useAppStore((state) => state.setCornerStyle);
   const dataDir = useAppStore((state) => state.dataDir);
@@ -210,15 +221,52 @@ export function SettingsView() {
                     <Select
                       value={settings.theme}
                       onChange={(event) =>
-                        updateSettings({
-                          theme: event.target.value as typeof settings.theme,
-                        })
+                        void setTheme(
+                          event.target.value as "dark" | "light" | "system",
+                        )
                       }
                     >
                       <option value="dark">深色</option>
                       <option value="light">浅色</option>
                       <option value="system">跟随系统</option>
                     </Select>
+                  </div>
+                </div>
+                <div className="appearance-palette">
+                  <div className="setting-row">
+                    <div className="copy">
+                      <div className="title">配色</div>
+                      <div className="desc">
+                        只改变强调色，背景保持中性；切换时颜色会平滑过渡。
+                      </div>
+                    </div>
+                  </div>
+                  <div className="palette-grid">
+                    {PALETTES.map((palette) => (
+                      <button
+                        key={palette.id}
+                        type="button"
+                        data-palette={palette.id}
+                        className={clsx(
+                          "palette-card",
+                          settings.palette === palette.id && "active",
+                        )}
+                        aria-pressed={settings.palette === palette.id}
+                        onClick={() => void setPalette(palette.id)}
+                      >
+                        <span className="palette-preview">
+                          <span className="palette-window">
+                            <span className="palette-accent-bar" />
+                            <span className="palette-accent-dot" />
+                            <span className="palette-panel">
+                              <span className="palette-line" />
+                              <span className="palette-line short" />
+                            </span>
+                          </span>
+                        </span>
+                        <span className="palette-name">{palette.label}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
                 <div className="setting-row">

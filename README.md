@@ -56,9 +56,9 @@ npm run tauri build
 
 本机已验证产物（见 `release/`）：
 
-- `release/Basalt.exe` — 免安装 EXE（20.32 MiB）
-- `release/Basalt_0.1.6_x64-setup.exe` — NSIS 安装包（7.55 MiB）
-- `release/Basalt-0.1.6-x64-portable.zip` — 便携压缩包（9.10 MiB）
+- `release/Basalt.exe` — 免安装 EXE（20.33 MiB）
+- `release/Basalt_0.1.7_x64-setup.exe` — NSIS 安装包（7.55 MiB）
+- `release/Basalt-0.1.7-x64-portable.zip` — 便携压缩包（9.11 MiB）
 - `release/SHA256SUMS.txt` — 校验和
 
 原始构建位置：`src-tauri/target/release/basalt.exe`、
@@ -84,9 +84,9 @@ API Key 只写入 Windows 凭据管理器；数据库与前端均不保存明文
 | --- | --- |
 | ![工作台](docs/screenshots/readme-workbench.png) | ![思考强度](docs/screenshots/readme-reasoning.png) |
 | 工作区 + 会话侧栏、默认 Agent 输入框 | off / minimal / low / medium / high / xhigh / max / ultra |
-| 供应商与模板 | 模型路由 |
+| 供应商与模板 | 外观配色 |
 | ![供应商](docs/screenshots/readme-providers.png) | ![设置](docs/screenshots/readme-settings.png) |
-| 供应商、模板与模型卡片编辑器 | 模型路由与 Agent 设置 |
+| 供应商、模板与模型卡片编辑器 | 外观配色与模型路由 |
 
 截图使用本地 Ollama 供应商与演示工作区，不包含真实 API Key、项目代码或个人路径。
 

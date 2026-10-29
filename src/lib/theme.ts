@@ -1,6 +1,19 @@
-import type { CornerStyle, ThemeMode } from "./types";
+import type { CornerStyle, ThemeMode, ThemePalette } from "./types";
 
 const CORNER_KEY = "basalt.corner-style.v1";
+const COLOR_TRANSITION_MS = 460;
+
+let transitionTimer: number | null = null;
+
+function beginColorTransition() {
+  const root = document.documentElement;
+  root.classList.add("color-transition");
+  if (transitionTimer !== null) window.clearTimeout(transitionTimer);
+  transitionTimer = window.setTimeout(() => {
+    root.classList.remove("color-transition");
+    transitionTimer = null;
+  }, COLOR_TRANSITION_MS);
+}
 
 export function resolveTheme(mode: ThemeMode): "dark" | "light" {
   if (mode === "system") {
@@ -11,8 +24,20 @@ export function resolveTheme(mode: ThemeMode): "dark" | "light" {
 
 export function applyTheme(mode: ThemeMode) {
   const resolved = resolveTheme(mode);
-  document.documentElement.dataset.theme = resolved;
-  document.documentElement.style.colorScheme = resolved;
+  const root = document.documentElement;
+  if (root.dataset.theme && root.dataset.theme !== resolved) {
+    beginColorTransition();
+  }
+  root.dataset.theme = resolved;
+  root.style.colorScheme = resolved;
+}
+
+export function applyPalette(palette: ThemePalette) {
+  const root = document.documentElement;
+  if (root.dataset.palette && root.dataset.palette !== palette) {
+    beginColorTransition();
+  }
+  root.dataset.palette = palette;
 }
 
 export function loadCornerStyle(): CornerStyle {

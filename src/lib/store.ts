@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { api, errorMessage } from "./api";
-import { applyCornerStyle, applyTheme, loadCornerStyle } from "./theme";
+import { applyCornerStyle, applyPalette, applyTheme, loadCornerStyle } from "./theme";
 import { approvalPatch } from "./permissions";
 import type {
   ApprovalMode,
@@ -28,6 +28,7 @@ import type {
   TaskStatus,
   TerminalTab,
   ThemeMode,
+  ThemePalette,
   Toast,
 } from "./types";
 
@@ -86,6 +87,7 @@ interface AppStore {
   dismissToast: (id: string) => void;
   setLayout: (patch: Partial<LayoutState>) => void;
   setTheme: (theme: ThemeMode) => Promise<void>;
+  setPalette: (palette: ThemePalette) => Promise<void>;
   setCornerStyle: (style: CornerStyle) => void;
   setApprovalMode: (mode: ApprovalMode) => Promise<void>;
   updateSettings: (patch: Partial<Settings>) => void;
@@ -167,6 +169,7 @@ function persistLayout(layout: LayoutState) {
 
 const defaultSettings: Settings = {
   theme: "dark",
+  palette: "basalt",
   routing: {
     chat: { providerId: "", model: "" },
     agentPlan: { providerId: "", model: "" },
@@ -184,7 +187,7 @@ const defaultSettings: Settings = {
   chatFontSize: 14,
   showHiddenFiles: false,
   userAgent:
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.6",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.7",
 };
 
 function upsertMessage(messages: Message[], message: Message): Message[] {
@@ -308,6 +311,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     try {
       const data = await api.bootstrap();
       applyTheme(data.settings.theme);
+      applyPalette(data.settings.palette);
       const lastProject = localStorage.getItem(PROJECT_KEY);
       const project =
         data.projects.find((item) => item.id === lastProject) ?? data.projects[0] ?? null;
@@ -352,6 +356,22 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
   },
 
+  setPalette: async (palette) => {
+    const previous = get().settings;
+    if (previous.palette === palette) return;
+    const settings = { ...previous, palette };
+    applyPalette(palette);
+    set({ settings });
+    try {
+      const saved = await api.settingsSet(settings);
+      set({ settings: saved });
+    } catch (error) {
+      applyPalette(previous.palette);
+      set({ settings: previous });
+      get().notify("error", "配色保存失败", errorMessage(error));
+    }
+  },
+
   setCornerStyle: (cornerStyle) => {
     applyCornerStyle(cornerStyle);
     set({ cornerStyle });
@@ -378,6 +398,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const saved = await api.settingsSet(get().settings);
       set({ settings: saved });
       applyTheme(saved.theme);
+      applyPalette(saved.palette);
       get().notify("success", "设置已保存");
     } catch (error) {
       get().notify("error", "设置保存失败", errorMessage(error));

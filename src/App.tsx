@@ -4,7 +4,7 @@ import { Rail } from "./components/Rail";
 import { TitlebarDrag, WindowControls } from "./components/WindowControls";
 import { Toasts } from "./components/ui";
 import { useAppStore } from "./lib/store";
-import { applyCornerStyle, applyTheme, watchSystemTheme } from "./lib/theme";
+import { applyCornerStyle, applyPalette, applyTheme, watchSystemTheme } from "./lib/theme";
 import type {
   ChatEvent,
   ImageEvent,
@@ -21,6 +21,7 @@ export default function App() {
   const boot = useAppStore((state) => state.boot);
   const view = useAppStore((state) => state.view);
   const theme = useAppStore((state) => state.settings.theme);
+  const palette = useAppStore((state) => state.settings.palette);
   const cornerStyle = useAppStore((state) => state.cornerStyle);
   const chatFontSize = useAppStore((state) => state.settings.chatFontSize);
   const layout = useAppStore((state) => state.layout);
@@ -69,6 +70,10 @@ export default function App() {
     if (theme !== "system") return;
     return watchSystemTheme(() => applyTheme("system"));
   }, [theme]);
+
+  useEffect(() => {
+    applyPalette(palette);
+  }, [palette]);
 
   useEffect(() => {
     applyCornerStyle(cornerStyle);

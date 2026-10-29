@@ -6,7 +6,9 @@ use tauri::State;
 
 use crate::db;
 use crate::error::{AppError, AppResult};
-use crate::models::{Bootstrap, Provider, Settings, MAX_AGENT_MAX_ITERATIONS};
+use crate::models::{
+    Bootstrap, Provider, Settings, MAX_AGENT_MAX_ITERATIONS, THEME_PALETTES,
+};
 use crate::secrets;
 use crate::state::AppState;
 
@@ -66,6 +68,9 @@ pub fn settings_set(state: State<'_, AppState>, mut settings: Settings) -> AppRe
         .clamp(1, MAX_AGENT_MAX_ITERATIONS);
     if !matches!(settings.theme.as_str(), "dark" | "light" | "system") {
         settings.theme = "dark".into();
+    }
+    if !THEME_PALETTES.contains(&settings.palette.as_str()) {
+        settings.palette = "basalt".into();
     }
     if !matches!(settings.terminal_shell.as_str(), "powershell" | "cmd" | "wsl") {
         settings.terminal_shell = "powershell".into();

@@ -266,6 +266,7 @@ export interface Routing {
 
 export interface Settings {
   theme: "dark" | "light" | "system";
+  palette: ThemePalette;
   routing: Routing;
   agentMaxIterations: number;
   autoApproveWrites: boolean;
@@ -358,6 +359,8 @@ export interface ApprovalRequest {
 }
 
 export type ThemeMode = "dark" | "light" | "system";
+
+export type ThemePalette = "basalt" | "forest" | "mint" | "honey" | "parchment";
 
 export type CornerStyle = "sharp" | "round";
 

@@ -1,6 +1,6 @@
 # 自动化测试与验证记录
 
-验证日期：2026-10-27，更新：2026-10-28  
+验证日期：2026-10-27，更新：2026-10-29
 环境：Windows 10.0.26300 x64 · Node 26.1.0 · Rust 1.99.1 (MSVC) · WebView2 155
 
 > 2026-10-28 起内置 Mock 供应商与 Mock 演示沙盒已移除；本文中涉及 Mock 的
@@ -44,6 +44,7 @@ Rust 测试覆盖：
 - Base URL 自动补全（OpenAI `/v1`、Gemini `/v1beta`、Ollama 根地址）与保存持久化。
 - 模型卡片编辑、上下文预设、默认模型切换、分组能力矩阵与批量标记。
 - 工具调用聚合卡：18 次调用折叠为一张卡、按工具统计、展开紧凑步骤。
+- 配色卡片：玄武 / 森林 / 薄荷 / 蜜蜂 / 羊皮纸，深浅主题下强调色、460ms 过渡与持久化。
 - 旧版 20 轮设置升级为 200，轮次上限失败任务迁移为可继续的中断状态。
 - 思考强度选择器 8 档、会话持久化与各协议请求字段。
 - Agent 任务创建、联网搜索、网页读取、只读子代理与时间线输出。
@@ -58,7 +59,7 @@ Rust 测试覆盖：
 | `readme-workbench.png` | 工作区 + 会话侧栏、默认 Agent 输入框 |
 | `readme-reasoning.png` | 思考强度 8 档选择 |
 | `readme-providers.png` | 供应商、模板与模型卡片编辑器 |
-| `readme-settings.png` | 模型路由与应用设置 |
+| `readme-settings.png` | 外观配色与模型路由 |
 
 测试发现的真实缺陷及修复：
 
@@ -77,9 +78,9 @@ Rust 测试覆盖：
 
 | 产物 | 结果 |
 | --- | --- |
-| `release/Basalt.exe` | 构建成功（21,307,904 字节，约 20.32 MiB） |
-| `release/Basalt_0.1.6_x64-setup.exe` | NSIS 安装包构建成功（7.55 MiB） |
-| `release/Basalt-0.1.6-x64-portable.zip` | 便携压缩包构建成功（9.10 MiB） |
+| `release/Basalt.exe` | 构建成功（21,315,584 字节，约 20.33 MiB） |
+| `release/Basalt_0.1.7_x64-setup.exe` | NSIS 安装包构建成功（7.55 MiB） |
+| `release/Basalt-0.1.7-x64-portable.zip` | 便携压缩包构建成功（9.11 MiB） |
 | 首次启动 | 成功；窗口 “Basalt Workbench”；数据目录正常创建 |
 | 遥测 / 网络 | 启动不联网；仅供应商请求与 Agent 联网工具会访问外部服务 |
 | 静默安装 | `/S /D=<temp>`，退出码 0 |
