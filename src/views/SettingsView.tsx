@@ -237,7 +237,7 @@ export function SettingsView() {
                     <div className="copy">
                       <div className="title">配色</div>
                       <div className="desc">
-                        只改变强调色，背景保持中性；切换时颜色会平滑过渡。
+                        整套界面的背景、表面与强调色都会随配色变化；切换时颜色平滑过渡。
                       </div>
                     </div>
                   </div>

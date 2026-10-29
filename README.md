@@ -30,6 +30,8 @@ GitHub：<https://github.com/zakolinxi/basalt-workbench>
   终止进程。用户命令与 Agent 命令来源清晰区分。
 - **独立图像工作区**：生成、编辑、参考图、能力约束的参数面板、历史、保存、重生成、
   继续编辑；对话内 `/img` 使用独立 Image Provider，不要求聊天模型具备生图能力。
+- **整页配色**：玄武、森林、薄荷、蜜蜂、羊皮纸五套方案同时改变背景、面板与强调色，
+  切换带 460ms 颜色过渡；选择立即保存，重启继续生效。
 - **本地优先**：项目、会话、变更快照与密钥都留在本机；只有你配置的供应商请求和
   Agent 主动发起的联网工具调用会访问外部服务。
 
@@ -57,8 +59,8 @@ npm run tauri build
 本机已验证产物（见 `release/`）：
 
 - `release/Basalt.exe` — 免安装 EXE（20.33 MiB）
-- `release/Basalt_0.1.7_x64-setup.exe` — NSIS 安装包（7.55 MiB）
-- `release/Basalt-0.1.7-x64-portable.zip` — 便携压缩包（9.11 MiB）
+- `release/Basalt_0.1.8_x64-setup.exe` — NSIS 安装包（7.55 MiB）
+- `release/Basalt-0.1.8-x64-portable.zip` — 便携压缩包（9.11 MiB）
 - `release/SHA256SUMS.txt` — 校验和
 
 原始构建位置：`src-tauri/target/release/basalt.exe`、
