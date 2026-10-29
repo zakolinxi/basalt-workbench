@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   Square,
   TestTube2,
-  Wrench,
   XCircle,
 } from "lucide-react";
 import clsx from "clsx";
@@ -150,7 +149,7 @@ export function TaskTimeline({ taskId }: { taskId: string }) {
   const openTaskChangeDiff = useAppStore((state) => state.openTaskChangeDiff);
   const notify = useAppStore((state) => state.notify);
   const [expanded, setExpanded] = useState(true);
-  const [toolsOpen, setToolsOpen] = useState<boolean | null>(null);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [reviewText, setReviewText] = useState("");
@@ -158,33 +157,21 @@ export function TaskTimeline({ taskId }: { taskId: string }) {
 
   useEffect(() => {
     setExpanded(true);
-    setToolsOpen(null);
+    setToolsOpen(false);
   }, [taskId]);
 
   const events = detail?.events ?? [];
   const toolViews = useMemo(() => buildToolViews(events), [events]);
   const toolStats = useMemo(() => {
-    const counts = new Map<string, number>();
     let failed = 0;
     let runningCount = 0;
     let cancelled = 0;
-    let totalMs = 0;
     for (const tool of toolViews) {
-      counts.set(tool.name, (counts.get(tool.name) ?? 0) + 1);
       if (tool.status === "running" || tool.status === "pending") runningCount += 1;
       if (tool.status === "failed" || tool.status === "denied") failed += 1;
       if (tool.status === "cancelled") cancelled += 1;
-      totalMs += tool.durationMs ?? 0;
     }
-    return {
-      counts: [...counts.entries()].sort(
-        (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
-      ),
-      failed,
-      running: runningCount,
-      cancelled,
-      totalMs,
-    };
+    return { failed, running: runningCount, cancelled };
   }, [toolViews]);
   const tests = useMemo(
     () => events.filter((event) => event.type === "TestCompleted"),
@@ -194,7 +181,7 @@ export function TaskTimeline({ taskId }: { taskId: string }) {
   const steps = task?.plan ?? [];
   const status = (task?.status ?? "queued") as TaskStatus;
   const running = status === "running" || status === "waitingApproval";
-  const toolsExpanded = toolsOpen ?? running;
+  const toolsExpanded = toolsOpen;
   const canResume = ["interrupted", "failed", "cancelled"].includes(status);
   const active = running || status === "queued";
 
@@ -326,58 +313,21 @@ export function TaskTimeline({ taskId }: { taskId: string }) {
                 onClick={() => setToolsOpen(!toolsExpanded)}
                 aria-expanded={toolsExpanded}
               >
-                <span className="tool-run-icon">
-                  <Wrench size={13} />
+                <span
+                  className={clsx("tool-run-chevron", toolsExpanded && "open")}
+                >
+                  <ChevronRight size={12} />
                 </span>
-                <span className="tool-run-main">
-                  <span className="tool-run-top">
-                    <span className="tool-run-title">工具调用</span>
-                    <span className="tool-run-count">{toolViews.length} 次</span>
-                    <span
-                      className={clsx(
-                        "tool-run-state",
-                        toolStats.running > 0 && "running",
-                        toolStats.failed > 0 && "failed",
-                      )}
-                    >
-                      {toolStats.running > 0 ? (
-                        <>
-                          <Loader2
-                            size={10}
-                            style={{ animation: "spin .8s linear infinite" }}
-                          />
-                          执行中
-                        </>
-                      ) : toolStats.failed > 0 ? (
-                        `${toolStats.failed} 个失败`
-                      ) : toolStats.cancelled > 0 ? (
-                        "部分取消"
-                      ) : (
-                        "全部完成"
-                      )}
-                    </span>
-                    {toolStats.totalMs > 0 ? (
-                      <span className="tool-run-time">
-                        {formatDuration(toolStats.totalMs)}
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="tool-run-chips">
-                    {toolStats.counts.map(([name, count]) => (
-                      <span className="tool-chip" key={name}>
-                        {toolLabel(name)}
-                        <span className="n">×{count}</span>
-                      </span>
-                    ))}
-                  </span>
+                <span className="tool-run-label">
+                  执行工具 {toolViews.length} 次
+                  {toolStats.failed > 0
+                    ? `，其中 ${toolStats.failed} 次失败`
+                    : ""}
+                  {toolStats.cancelled > 0 && toolStats.failed === 0
+                    ? `，${toolStats.cancelled} 次取消`
+                    : ""}
+                  {toolStats.running > 0 ? "，正在执行" : ""}
                 </span>
-                <ChevronDown
-                  size={14}
-                  className={clsx(
-                    "tool-run-chevron",
-                    toolsExpanded && "open",
-                  )}
-                />
               </button>
               {toolsExpanded ? (
                 <div className="tool-run-body">

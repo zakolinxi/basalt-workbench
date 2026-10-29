@@ -2520,23 +2520,21 @@ a {
   margin-top: 1px;
 }
 .tool-run {
-  border: 1px solid var(--line);
-  background: var(--bg-0);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
+  background: transparent;
 }
 .tool-run-summary {
   width: 100%;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 9px;
-  padding: 9px 10px;
+  padding: 5px 4px;
   background: transparent;
   border: 0;
   color: inherit;
   text-align: left;
   font: inherit;
   cursor: pointer;
+  border-radius: var(--radius-xs);
 }
 .tool-run-summary:hover {
   background: var(--bg-hover);
@@ -2545,93 +2543,39 @@ a {
   outline: 1px solid var(--accent-line);
   outline-offset: -1px;
 }
-.tool-run-icon {
-  width: 22px;
-  height: 22px;
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-xs);
-  background: var(--bg-2);
-  color: var(--fg-2);
-}
-.tool-run-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.tool-run-top {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-  flex-wrap: wrap;
-}
-.tool-run-title {
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--fg-0);
-}
-.tool-run-count {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--fg-3);
-}
-.tool-run-state {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 9.5px;
-  color: var(--fg-3);
-}
-.tool-run-state.running {
-  color: var(--warn);
-}
-.tool-run-state.failed {
-  color: var(--err);
-}
-.tool-run-time {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--fg-3);
-}
-.tool-run-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.tool-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 18px;
-  padding: 0 6px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  font-size: 9.5px;
-  color: var(--fg-2);
-}
-.tool-chip .n {
-  font-family: var(--font-mono);
-  font-size: 8.5px;
-  color: var(--fg-3);
-}
 .tool-run-chevron {
-  color: var(--fg-3);
+  width: 24px;
+  height: 24px;
   flex: none;
-  margin-top: 4px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  color: var(--fg-2);
+  background: transparent;
+}
+.tool-run-chevron svg {
   transition: transform 0.15s ease;
 }
-.tool-run-chevron.open {
-  transform: rotate(180deg);
+.tool-run-chevron.open svg {
+  transform: rotate(90deg);
+}
+.tool-run-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--fg-2);
+  line-height: 1.4;
+}
+.tool-run-summary:hover .tool-run-label {
+  color: var(--fg-1);
 }
 .tool-run-body {
-  border-top: 1px solid var(--line);
+  margin: 4px 0 8px 33px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-0);
+  overflow: hidden;
 }
 .tool-step {
   border-top: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
