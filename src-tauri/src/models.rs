@@ -15,9 +15,6 @@ pub const TASK_FAILED: &str = "failed";
 pub const TASK_CANCELLED: &str = "cancelled";
 pub const TASK_INTERRUPTED: &str = "interrupted";
 
-pub const DEFAULT_AGENT_MAX_ITERATIONS: u32 = 200;
-pub const MAX_AGENT_MAX_ITERATIONS: u32 = 1000;
-
 pub const THEME_PALETTES: [&str; 5] = ["basalt", "forest", "mint", "honey", "parchment"];
 
 pub fn default_palette() -> String {
@@ -467,7 +464,6 @@ pub struct Settings {
     #[serde(default = "default_palette")]
     pub palette: String,
     pub routing: Routing,
-    pub agent_max_iterations: u32,
     pub auto_approve_writes: bool,
     pub auto_approve_commands: bool,
     pub terminal_shell: String,
@@ -479,7 +475,7 @@ pub struct Settings {
 }
 
 pub fn default_user_agent() -> String {
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.10".into()
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.11".into()
 }
 
 pub const REASONING_EFFORTS: [&str; 8] = [
@@ -502,7 +498,6 @@ impl Default for Settings {
             theme: "dark".into(),
             palette: default_palette(),
             routing: Routing::default(),
-            agent_max_iterations: DEFAULT_AGENT_MAX_ITERATIONS,
             auto_approve_writes: false,
             auto_approve_commands: false,
             terminal_shell: "powershell".into(),

@@ -380,27 +380,6 @@ export function SettingsView() {
               <div className="body">
                 <div className="setting-row">
                   <div className="copy">
-                    <div className="title">Agent 安全上限（轮）</div>
-                    <div className="desc">
-                      默认 200 轮，仅在超长任务或循环时触发。达到上限后任务会暂停并保留进度，提高上限后点击「继续」接着执行。
-                    </div>
-                  </div>
-                  <div className="control">
-                    <Input
-                      type="number"
-                      min={1}
-                      max={1000}
-                      value={settings.agentMaxIterations}
-                      onChange={(event) =>
-                        updateSettings({
-                          agentMaxIterations: Number(event.target.value) || 200,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="setting-row">
-                  <div className="copy">
                     <div className="title">审批策略</div>
                     <div className="desc">
                       每次询问：写入与命令都暂停；自动审批：文件写入自动执行，命令仍需批准；

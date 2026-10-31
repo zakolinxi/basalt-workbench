@@ -268,7 +268,6 @@ export interface Settings {
   theme: "dark" | "light" | "system";
   palette: ThemePalette;
   routing: Routing;
-  agentMaxIterations: number;
   autoApproveWrites: boolean;
   autoApproveCommands: boolean;
   terminalShell: "powershell" | "cmd" | "wsl" | string;

@@ -100,13 +100,13 @@ pub async fn run(
     let tool_schemas = tools::schemas_readonly();
     let mut last_text = String::new();
     let mut tool_count = 0usize;
-    let mut rounds = 0usize;
+    let mut round = 0usize;
 
-    for round in 0..6 {
+    loop {
+        round += 1;
         if cancel.is_cancelled() {
             return Err(AppError::Cancelled);
         }
-        rounds = round + 1;
         let request = ChatRequest {
             model: model.clone(),
             messages: messages.clone(),
@@ -181,7 +181,7 @@ pub async fn run(
             } else {
                 last_text
             };
-            return Ok(result(role, sub_task, report, rounds, tool_count, false));
+            return Ok(result(role, sub_task, report, round, tool_count));
         }
 
         messages.push(ChatMessage {
@@ -229,8 +229,6 @@ pub async fn run(
             });
         }
     }
-
-    Ok(result(role, sub_task, last_text, rounds, tool_count, true))
 }
 
 fn result(
@@ -239,12 +237,10 @@ fn result(
     report: String,
     rounds: usize,
     tool_count: usize,
-    exhausted: bool,
 ) -> ToolResult {
     let (report, truncated) = crate::files::truncate_chars(&report, 16_000);
     let summary = format!(
-        "子代理（{role}）完成 · {rounds} 轮 · {tool_count} 次工具调用{}",
-        if exhausted { " · 达到轮次上限" } else { "" }
+        "子代理（{role}）完成 · {rounds} 轮 · {tool_count} 次工具调用"
     );
     ToolResult {
         data: json!({
@@ -253,8 +249,7 @@ fn result(
             "report": report,
             "rounds": rounds,
             "toolCalls": tool_count,
-            "truncated": truncated || exhausted,
-            "exhausted": exhausted
+            "truncated": truncated
         }),
         summary,
     }

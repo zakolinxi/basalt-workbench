@@ -1,15 +1,15 @@
-BASALT 0.1.10 — Windows x64
+BASALT 0.1.11 — Windows x64
 ===========================
 
 Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）。
 
 本次更新
 --------
-- 左侧 Rail 底部新增 GitHub 图标入口，位于主题切换按钮上方。
-- 图标使用 GitHub Octocat 描边；悬停时放大并显示 “GitHub” 提示。
-- 点击使用系统默认浏览器打开 https://github.com/zakolinxi/basalt-workbench。
-- 通过 Tauri opener 插件与最小权限打开外链，不修改工作区或应用数据。
-- 工具执行摘要默认折叠、整页配色与 460ms 颜色过渡保持上一版行为。
+- 主 Agent 移除固定轮次上限；不再在 200 / 1000 轮停止。
+- 子代理移除 6 轮循环上限；不再在约 10 次工具调用后提前结束。
+- 设置页移除「Agent 安全上限」，旧的 agentMaxIterations 配置会被忽略。
+- 运行仍可随时通过「停止」终止；取消令牌会结束当前模型请求、命令与子代理。
+- 模型上下文窗口、供应商速率限制与审批策略仍然有效。
 
 运行要求
 --------
@@ -20,7 +20,7 @@ Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）�
 
 两种方式
 --------
-1. 安装版：运行 Basalt_0.1.10_x64-setup.exe，按向导安装。
+1. 安装版：运行 Basalt_0.1.11_x64-setup.exe，按向导安装。
 2. 便携版：直接运行 Basalt.exe。便携版仍使用 %APPDATA%\com.basalt.workbench
    保存数据库、附件与设置。
 
