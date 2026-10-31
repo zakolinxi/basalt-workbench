@@ -7,6 +7,8 @@ import {
   ChevronDown,
   Eye,
   FileText,
+  Folder,
+  GitFork,
   ImagePlus,
   Paperclip,
   Settings2,
@@ -20,8 +22,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import clsx from "clsx";
 import { api, errorMessage } from "../lib/api";
 import { useAppStore, currentProject, currentSession } from "../lib/store";
-import { estimateTokens, formatBytes } from "../lib/format";
-import { APPROVAL_OPTIONS, approvalMode, approvalOption } from "../lib/permissions";
+import { formatBytes } from "../lib/format";import { APPROVAL_OPTIONS, approvalMode, approvalOption } from "../lib/permissions";
 import type { Attachment, Provider, ReasoningEffort } from "../lib/types";
 import { Badge, IconButton, MediaThumb, useClickOutside } from "./ui";
 
@@ -105,8 +106,8 @@ function compact(value: number): string {
 export function Composer() {
   const session = useAppStore(currentSession);
   const project = useAppStore(currentProject);
+  const projectGit = useAppStore((state) => state.projectGit);
   const providers = useAppStore((state) => state.providers);
-  const messages = useAppStore((state) => state.messages);
   const settings = useAppStore((state) => state.settings);
   const activeChat = useAppStore((state) => state.activeChat);
   const imageChatBusy = useAppStore((state) => state.imageChatBusy);
@@ -403,11 +404,6 @@ export function Composer() {
     });
   };
 
-  const contextTokens = estimateTokens(
-    `${messages.map((message) => message.content).join("\n")}\n${text}`,
-  );
-  const contextLimit = modelInfo?.contextLength ?? null;
-
   return (
     <div
       className={clsx("composer", dragging && "dragging")}
@@ -689,33 +685,38 @@ export function Composer() {
           )}
         </button>
       </div>
-      <div className="composer-meta">
-        <span>
-          {chatProviders.length === 0 && !isImageCommand ? (
-            <button
-              onClick={() => setView("providers")}
-              style={{ color: "var(--warn)", display: "inline-flex", alignItems: "center", gap: 4 }}
-            >
-              <AlertTriangle size={10} /> 未配置对话供应商
-            </button>
-          ) : (
-            <>
-              ENTER 发送 · SHIFT+ENTER 换行 · /img 生图
-              {mode === "agent" ? ` · Agent · ${approvalInfo.label}` : ""}
-            </>
-          )}
-        </span>
-        <span className="current">
-          {attachments.length > 0 && mode === "chat" ? (
-            <span style={{ marginRight: 8 }}>附件将发送到当前供应商</span>
-          ) : null}
-          {provider && !provider.hasKey && provider.protocol !== "ollama" ? (
-            <span style={{ color: "var(--warn)", marginRight: 8 }}>未设置 API Key</span>
-          ) : null}
-          ~{compact(contextTokens)} tok{contextLimit ? ` / ${compact(contextLimit)}` : ""} ·{" "}
-          {messages.length} 条消息
-        </span>
-      </div>
+      {project ? (
+        <div className="composer-meta">
+          <div className="composer-workspace">
+            <span className="composer-workspace-item" title={project.path}>
+              <Folder size={12} />
+              <span className="name">{project.name || project.path}</span>
+            </span>
+            {projectGit?.isRepo && projectGit.branch ? (
+              <span
+                className="composer-workspace-item branch"
+                title={`Git 分支：${projectGit.branch}`}
+              >
+                <GitFork size={12} />
+                <span className="name">{projectGit.branch}</span>
+              </span>
+            ) : null}
+          </div>
+          <div className="composer-alerts">
+            {chatProviders.length === 0 && !isImageCommand ? (
+              <button
+                className="composer-alert"
+                onClick={() => setView("providers")}
+              >
+                <AlertTriangle size={10} /> 未配置对话供应商
+              </button>
+            ) : null}
+            {provider && !provider.hasKey && provider.protocol !== "ollama" ? (
+              <span className="composer-alert warn">未设置 API Key</span>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
