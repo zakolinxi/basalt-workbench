@@ -8,6 +8,8 @@ import {
   Eye,
   FileText,
   Folder,
+  FolderOpen,
+  FolderPlus,
   GitFork,
   ImagePlus,
   Paperclip,
@@ -22,7 +24,9 @@ import { open } from "@tauri-apps/plugin-dialog";
 import clsx from "clsx";
 import { api, errorMessage } from "../lib/api";
 import { useAppStore, currentProject, currentSession } from "../lib/store";
-import { formatBytes } from "../lib/format";import { APPROVAL_OPTIONS, approvalMode, approvalOption } from "../lib/permissions";
+import { formatBytes } from "../lib/format";
+import { APPROVAL_OPTIONS, approvalMode, approvalOption } from "../lib/permissions";
+import { pickAndAddProject } from "../lib/project";
 import type { Attachment, Provider, ReasoningEffort } from "../lib/types";
 import { Badge, IconButton, MediaThumb, useClickOutside } from "./ui";
 
@@ -107,6 +111,8 @@ export function Composer() {
   const session = useAppStore(currentSession);
   const project = useAppStore(currentProject);
   const projectGit = useAppStore((state) => state.projectGit);
+  const projects = useAppStore((state) => state.projects);
+  const setCurrentProject = useAppStore((state) => state.setCurrentProject);
   const providers = useAppStore((state) => state.providers);
   const settings = useAppStore((state) => state.settings);
   const activeChat = useAppStore((state) => state.activeChat);
@@ -140,6 +146,7 @@ export function Composer() {
   const [permissionOpen, setPermissionOpen] = useState(false);
   const [reasoning, setReasoning] = useState<ReasoningEffort>("medium");
   const [reasoningOpen, setReasoningOpen] = useState(false);
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modelPickerRef = useClickOutside<HTMLDivElement>(
     () => setModelPickerOpen(false),
@@ -152,6 +159,10 @@ export function Composer() {
   const reasoningRef = useClickOutside<HTMLDivElement>(
     () => setReasoningOpen(false),
     reasoningOpen,
+  );
+  const projectMenuRef = useClickOutside<HTMLDivElement>(
+    () => setProjectMenuOpen(false),
+    projectMenuOpen,
   );
   const provider = chatProviders.find((item) => item.id === providerId) ?? null;
   const modelInfo = provider?.models.find((item) => item.id === model.trim()) ?? null;
@@ -688,10 +699,63 @@ export function Composer() {
       {project ? (
         <div className="composer-meta">
           <div className="composer-workspace">
-            <span className="composer-workspace-item" title={project.path}>
-              <Folder size={12} />
-              <span className="name">{project.name || project.path}</span>
-            </span>
+            <div className="composer-project-switch" ref={projectMenuRef}>
+              <button
+                type="button"
+                className="composer-workspace-item composer-project-trigger"
+                onClick={() => setProjectMenuOpen((value) => !value)}
+                aria-haspopup="menu"
+                aria-expanded={projectMenuOpen}
+                title={project.path}
+              >
+                <Folder size={12} />
+                <span className="name">{project.name || project.path}</span>
+                <ChevronDown size={10} className="composer-project-chevron" />
+              </button>
+              {projectMenuOpen ? (
+                <div className="composer-project-menu" role="menu">
+                  <div className="composer-project-menu-label">切换工作区</div>
+                  {projects.map((item) => (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      key={item.id}
+                      className={clsx(
+                        "composer-project-option",
+                        item.id === project.id && "active",
+                      )}
+                      onClick={() => {
+                        setProjectMenuOpen(false);
+                        if (item.id !== project.id) {
+                          void setCurrentProject(item.id);
+                        }
+                      }}
+                    >
+                      <FolderOpen size={13} />
+                      <span className="composer-project-option-meta">
+                        <span className="n">{item.name}</span>
+                        <span className="p">{item.path}</span>
+                      </span>
+                      {item.id === project.id ? (
+                        <Check size={11} className="composer-project-check" />
+                      ) : null}
+                    </button>
+                  ))}
+                  <div className="composer-project-menu-divider" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="composer-project-add"
+                    onClick={() => {
+                      setProjectMenuOpen(false);
+                      void pickAndAddProject();
+                    }}
+                  >
+                    <FolderPlus size={13} /> 添加项目目录
+                  </button>
+                </div>
+              ) : null}
+            </div>
             {projectGit?.isRepo && projectGit.branch ? (
               <span
                 className="composer-workspace-item branch"
