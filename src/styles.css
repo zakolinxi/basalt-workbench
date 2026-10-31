@@ -2622,8 +2622,15 @@ a {
   background: var(--bg-hover);
   color: var(--fg-0);
 }
-.composer-alerts {
+.composer-status-right {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+  min-width: 0;
+}
+.composer-alerts {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -2640,6 +2647,138 @@ a {
 }
 .composer-alert.warn {
   cursor: default;
+}
+.composer-context {
+  position: relative;
+  flex: none;
+}
+.composer-context-trigger {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 6px;
+  margin: -2px -6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--bg-3);
+  color: var(--fg-2);
+  font: inherit;
+  cursor: pointer;
+}
+.composer-context-trigger:hover {
+  background: var(--bg-hover);
+  border-color: var(--line-strong);
+  color: var(--fg-0);
+}
+.composer-context-trigger:focus-visible {
+  outline: 1px solid var(--accent-line);
+  outline-offset: 1px;
+}
+.composer-context-track {
+  width: 58px;
+  height: 6px;
+  display: flex;
+  flex: none;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--bg-0);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.composer-context-fill {
+  height: 100%;
+  flex: none;
+}
+.composer-context-fill.system,
+.composer-context-dot.system {
+  background: var(--fg-3);
+}
+.composer-context-fill.history,
+.composer-context-dot.history {
+  background: var(--info);
+}
+.composer-context-fill.tools,
+.composer-context-dot.tools {
+  background: var(--warn);
+}
+.composer-context-fill.draft,
+.composer-context-dot.draft {
+  background: var(--ok);
+}
+.composer-context-dot.remaining {
+  background: var(--line-strong);
+}
+.composer-context-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--fg-2);
+  white-space: nowrap;
+}
+.composer-context-label.over {
+  color: var(--err);
+}
+.composer-context-popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 82;
+  width: 260px;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-1);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
+}
+.composer-context-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--fg-1);
+}
+.composer-context-total {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--fg-2);
+}
+.composer-context-total.over {
+  color: var(--err);
+}
+.composer-context-popbar {
+  display: flex;
+  height: 6px;
+  margin: 8px 0 6px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--bg-3);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.composer-context-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 0;
+  font-size: 10.5px;
+  color: var(--fg-2);
+}
+.composer-context-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+}
+.composer-context-row .label {
+  flex: 1;
+}
+.composer-context-row .value {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--fg-2);
+}
+.composer-context-note {
+  margin-top: 5px;
+  font-size: 9px;
+  color: var(--fg-3);
 }
 
 /* approval bar */

@@ -3,6 +3,7 @@ import type {
   Attachment,
   Bootstrap,
   Change,
+  ContextUsage,
   FileContent,
   FileDiff,
   GitStatus,
@@ -151,6 +152,18 @@ export const api = {
     reasoningEffort?: string;
   }) => invoke<Message>("chat_send", { input }),
   chatCancel: (requestId: string) => invoke<boolean>("chat_cancel", { requestId }),
+  contextUsage: (
+    sessionId: string,
+    providerId: string,
+    model: string,
+    mode: "chat" | "agent",
+  ) =>
+    invoke<ContextUsage>("context_usage", {
+      sessionId,
+      providerId,
+      model,
+      mode,
+    }),
 
   terminalCreate: (input: {
     projectId?: string | null;

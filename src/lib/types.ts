@@ -249,6 +249,14 @@ export interface GitStatus {
   error?: string | null;
 }
 
+export interface ContextUsage {
+  system: number;
+  messages: number;
+  tools: number;
+  total: number;
+  limit?: number | null;
+}
+
 export interface Route {
   providerId: string;
   model: string;

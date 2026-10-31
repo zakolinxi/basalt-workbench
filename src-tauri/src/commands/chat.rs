@@ -8,12 +8,12 @@ use tokio::sync::mpsc::unbounded_channel;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use crate::db::{get_project, insert_message, now, row_to_session};
+use crate::db::{get_project, get_provider_row, insert_message, now, row_to_session};
 use crate::error::{AppError, AppResult};
 use crate::files::path_is_within;
 use crate::messaging;
 use crate::models::{
-    Attachment, ChatEvent, Message, Session, CAP_UNSUPPORTED, CAP_VERIFIED,
+    Attachment, ChatEvent, ContextUsage, Message, Session, CAP_UNSUPPORTED, CAP_VERIFIED,
 };
 use crate::providers::{
     capabilities_for, chat_adapter, load_chat_runtime, mark_capabilities, ChatMessage, ChatRequest,
@@ -714,4 +714,95 @@ pub fn chat_cancel(state: State<'_, AppState>, request_id: String) -> AppResult<
     } else {
         Ok(false)
     }
+}
+
+fn estimate_tokens(text: &str) -> u64 {
+    let mut cjk = 0u64;
+    let mut other = 0u64;
+    for ch in text.chars() {
+        if matches!(ch as u32, 0x3040..=0x30ff | 0x3400..=0x9fff) {
+            cjk += 1;
+        } else {
+            other += 1;
+        }
+    }
+    (cjk as f64 * 0.9 + other as f64 / 4.0).ceil() as u64
+}
+
+#[tauri::command]
+pub fn context_usage(
+    state: State<'_, AppState>,
+    session_id: String,
+    provider_id: String,
+    model: String,
+    mode: String,
+) -> AppResult<ContextUsage> {
+    let (session, project_path, limit) = {
+        let conn = state.db();
+        let session = conn
+            .query_row(
+                "SELECT * FROM sessions WHERE id = ?1",
+                [&session_id],
+                row_to_session,
+            )
+            .map_err(|_| AppError::msg("会话不存在，请先创建会话"))?;
+        let provider = get_provider_row(&conn, &provider_id)?;
+        let model_id = if model.trim().is_empty() {
+            provider.default_chat_model.clone().unwrap_or_default()
+        } else {
+            model.trim().to_string()
+        };
+        let project_path = session
+            .project_id
+            .as_deref()
+            .and_then(|id| get_project(&conn, id).ok())
+            .map(|project| project.path);
+        let limit = provider
+            .models
+            .iter()
+            .find(|entry| entry.id == model_id)
+            .and_then(|entry| entry.context_length);
+        (session, project_path, limit)
+    };
+
+    let app = state.inner();
+    let system_text = if mode == "agent" {
+        let root = project_path
+            .as_deref()
+            .map(Path::new)
+            .unwrap_or_else(|| Path::new(""));
+        crate::agent::prompt::system_prompt(root)
+    } else {
+        chat_system_prompt(app, &session)
+    };
+    let system = estimate_tokens(&system_text);
+
+    let history = messaging::history_for_model(app, &session_id, 40, false)?;
+    let messages = history
+        .iter()
+        .map(|message| {
+            let mut total = estimate_tokens(&message.content);
+            for call in &message.tool_calls {
+                total += estimate_tokens(&call.name);
+                total += estimate_tokens(&call.arguments.to_string());
+            }
+            total
+        })
+        .sum::<u64>();
+
+    let tools = if mode == "agent" {
+        serde_json::to_string(&crate::agent::tools::schemas())
+            .map(|raw| estimate_tokens(&raw))
+            .unwrap_or(0)
+    } else {
+        0
+    };
+
+    Ok(ContextUsage {
+        system,
+        messages,
+        tools,
+        total: system + messages + tools,
+        limit,
+    })
 }

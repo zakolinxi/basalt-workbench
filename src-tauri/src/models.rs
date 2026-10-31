@@ -361,6 +361,16 @@ pub struct GitStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ContextUsage {
+    pub system: u64,
+    pub messages: u64,
+    pub tools: u64,
+    pub total: u64,
+    pub limit: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ImageFile {
     pub path: String,
     pub mime: String,
@@ -475,7 +485,7 @@ pub struct Settings {
 }
 
 pub fn default_user_agent() -> String {
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.15".into()
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.16".into()
 }
 
 pub const REASONING_EFFORTS: [&str; 8] = [

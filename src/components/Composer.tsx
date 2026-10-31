@@ -25,10 +25,15 @@ import { open } from "@tauri-apps/plugin-dialog";
 import clsx from "clsx";
 import { api, errorMessage } from "../lib/api";
 import { useAppStore, currentProject, currentSession } from "../lib/store";
-import { formatBytes } from "../lib/format";
+import { estimateTokens, formatBytes } from "../lib/format";
 import { APPROVAL_OPTIONS, approvalMode, approvalOption } from "../lib/permissions";
 import { pickAndAddProject } from "../lib/project";
-import type { Attachment, Provider, ReasoningEffort } from "../lib/types";
+import type {
+  Attachment,
+  ContextUsage,
+  Provider,
+  ReasoningEffort,
+} from "../lib/types";
 import { Badge, IconButton, MediaThumb, useClickOutside } from "./ui";
 
 const REASONING_OPTIONS: {
@@ -108,11 +113,22 @@ function compact(value: number): string {
   return String(value);
 }
 
+function compactContext(value: number): string {
+  if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(2).replace(/\.?0+$/, "")}M`;
+  }
+  if (value >= 1000) {
+    return `${(value / 1000).toFixed(1).replace(/\.0$/, "")}K`;
+  }
+  return String(value);
+}
+
 export function Composer() {
   const session = useAppStore(currentSession);
   const project = useAppStore(currentProject);
   const projectGit = useAppStore((state) => state.projectGit);
   const projects = useAppStore((state) => state.projects);
+  const messages = useAppStore((state) => state.messages);
   const setCurrentProject = useAppStore((state) => state.setCurrentProject);
   const refreshGit = useAppStore((state) => state.refreshGit);
   const refreshChanges = useAppStore((state) => state.refreshChanges);
@@ -158,6 +174,9 @@ export function Composer() {
   const [branchBusy, setBranchBusy] = useState(false);
   const [branchError, setBranchError] = useState<string | null>(null);
   const [newBranch, setNewBranch] = useState("");
+  const [contextUsage, setContextUsage] = useState<ContextUsage | null>(null);
+  const [contextOpen, setContextOpen] = useState(false);
+  const [contextLoading, setContextLoading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modelPickerRef = useClickOutside<HTMLDivElement>(
     () => setModelPickerOpen(false),
@@ -178,6 +197,10 @@ export function Composer() {
   const branchMenuRef = useClickOutside<HTMLDivElement>(
     () => setBranchMenuOpen(false),
     branchMenuOpen,
+  );
+  const contextRef = useClickOutside<HTMLDivElement>(
+    () => setContextOpen(false),
+    contextOpen,
   );
   const provider = chatProviders.find((item) => item.id === providerId) ?? null;
   const modelInfo = provider?.models.find((item) => item.id === model.trim()) ?? null;
@@ -231,6 +254,8 @@ export function Composer() {
     setModelPickerOpen(false);
     setPermissionOpen(false);
     setReasoningOpen(false);
+    setContextOpen(false);
+    setContextUsage(null);
   }, [session?.id]);
 
   useEffect(() => {
@@ -249,6 +274,32 @@ export function Composer() {
   }, [project?.id]);
 
   useEffect(() => {
+    if (!session?.id || !providerId || !model.trim()) {
+      setContextUsage(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setContextLoading(true);
+      api
+        .contextUsage(session.id, providerId, model.trim(), mode)
+        .then((usage) => {
+          if (!cancelled) setContextUsage(usage);
+        })
+        .catch(() => {
+          if (!cancelled) setContextUsage(null);
+        })
+        .finally(() => {
+          if (!cancelled) setContextLoading(false);
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [session?.id, providerId, model, mode, messages.length]);
+
+  useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setModelPickerOpen(false);
@@ -256,6 +307,7 @@ export function Composer() {
       setReasoningOpen(false);
       setProjectMenuOpen(false);
       setBranchMenuOpen(false);
+      setContextOpen(false);
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
@@ -503,6 +555,35 @@ export function Composer() {
       setBranchBusy(false);
     }
   };
+
+  const contextSystem = contextUsage?.system ?? 0;
+  const contextMessages =
+    contextUsage?.messages ??
+    estimateTokens(messages.map((message) => message.content).join("\n"));
+  const contextTools = contextUsage?.tools ?? 0;
+  const contextDraft = estimateTokens(text);
+  const contextTotal =
+    contextSystem + contextMessages + contextTools + contextDraft;
+  const contextLimit = contextUsage?.limit ?? modelInfo?.contextLength ?? null;
+  const contextPercent =
+    contextLimit && contextLimit > 0
+      ? Math.max(
+          0,
+          Math.round((contextTotal / contextLimit) * 1000) / 10,
+        )
+      : null;
+  const contextDenom =
+    contextLimit && contextLimit > 0
+      ? contextLimit
+      : Math.max(contextTotal, 1);
+  const contextSegments = [
+    { key: "system", value: contextSystem },
+    { key: "history", value: contextMessages },
+    { key: "tools", value: contextTools },
+    { key: "draft", value: contextDraft },
+  ].filter((segment) => segment.value > 0);
+  const contextRemaining =
+    contextLimit !== null ? Math.max(0, contextLimit - contextTotal) : null;
 
   return (
     <div
@@ -926,17 +1007,139 @@ export function Composer() {
               </div>
             ) : null}
           </div>
-          <div className="composer-alerts">
-            {chatProviders.length === 0 && !isImageCommand ? (
-              <button
-                className="composer-alert"
-                onClick={() => setView("providers")}
-              >
-                <AlertTriangle size={10} /> 未配置对话供应商
-              </button>
-            ) : null}
-            {provider && !provider.hasKey && provider.protocol !== "ollama" ? (
-              <span className="composer-alert warn">未设置 API Key</span>
+          <div className="composer-status-right">
+            <div className="composer-alerts">
+              {chatProviders.length === 0 && !isImageCommand ? (
+                <button
+                  className="composer-alert"
+                  onClick={() => setView("providers")}
+                >
+                  <AlertTriangle size={10} /> 未配置对话供应商
+                </button>
+              ) : null}
+              {provider && !provider.hasKey && provider.protocol !== "ollama" ? (
+                <span className="composer-alert warn">未设置 API Key</span>
+              ) : null}
+            </div>
+            {session ? (
+              <div className="composer-context" ref={contextRef}>
+                <button
+                  type="button"
+                  className="composer-context-trigger"
+                  onClick={() => setContextOpen((value) => !value)}
+                  aria-expanded={contextOpen}
+                  title="查看上下文估算"
+                >
+                  <span className="composer-context-track">
+                    {contextSegments.map((segment) => (
+                      <span
+                        key={segment.key}
+                        className={clsx("composer-context-fill", segment.key)}
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            (segment.value / contextDenom) * 100,
+                          )}%`,
+                        }}
+                      />
+                    ))}
+                  </span>
+                  <span
+                    className={clsx(
+                      "composer-context-label",
+                      contextPercent !== null &&
+                        contextPercent > 100 &&
+                        "over",
+                    )}
+                  >
+                    {compactContext(contextTotal)}
+                    {contextLimit !== null
+                      ? ` / ${compactContext(contextLimit)}`
+                      : " tok"}
+                    {contextPercent !== null ? ` · ${contextPercent}%` : ""}
+                  </span>
+                </button>
+                {contextOpen ? (
+                  <div className="composer-context-popover">
+                    <div className="composer-context-head">
+                      <span>上下文</span>
+                      <span
+                        className={clsx(
+                          "composer-context-total",
+                          contextPercent !== null &&
+                            contextPercent > 100 &&
+                            "over",
+                        )}
+                      >
+                        {compactContext(contextTotal)}
+                        {contextLimit !== null
+                          ? ` / ${compactContext(contextLimit)}`
+                          : ""}
+                        {contextPercent !== null
+                          ? ` · ${contextPercent}%`
+                          : ""}
+                      </span>
+                    </div>
+                    <div className="composer-context-popbar">
+                      {contextSegments.map((segment) => (
+                        <span
+                          key={segment.key}
+                          className={clsx(
+                            "composer-context-fill",
+                            segment.key,
+                          )}
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              (segment.value / contextDenom) * 100,
+                            )}%`,
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <div className="composer-context-row">
+                      <span className="composer-context-dot system" />
+                      <span className="label">系统提示</span>
+                      <span className="value">
+                        {compactContext(contextSystem)}
+                      </span>
+                    </div>
+                    <div className="composer-context-row">
+                      <span className="composer-context-dot history" />
+                      <span className="label">消息</span>
+                      <span className="value">
+                        {compactContext(contextMessages)}
+                      </span>
+                    </div>
+                    <div className="composer-context-row">
+                      <span className="composer-context-dot tools" />
+                      <span className="label">工具</span>
+                      <span className="value">
+                        {compactContext(contextTools)}
+                      </span>
+                    </div>
+                    <div className="composer-context-row">
+                      <span className="composer-context-dot draft" />
+                      <span className="label">输入</span>
+                      <span className="value">
+                        {compactContext(contextDraft)}
+                      </span>
+                    </div>
+                    {contextRemaining !== null ? (
+                      <div className="composer-context-row">
+                        <span className="composer-context-dot remaining" />
+                        <span className="label">剩余容量</span>
+                        <span className="value">
+                          {compactContext(contextRemaining)}
+                        </span>
+                      </div>
+                    ) : null}
+                    <div className="composer-context-note">
+                      {contextLoading ? "正在重新估算…" : "按下一次请求估算"}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             ) : null}
           </div>
         </div>

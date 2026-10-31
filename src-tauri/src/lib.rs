@@ -81,6 +81,7 @@ pub fn run() {
             commands::chat::attachment_delete,
             commands::chat::chat_send,
             commands::chat::chat_cancel,
+            commands::chat::context_usage,
             commands::terminal::terminal_create,
             commands::terminal::terminal_write,
             commands::terminal::terminal_resize,
