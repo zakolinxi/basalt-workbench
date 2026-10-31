@@ -29,7 +29,7 @@ Rust 测试覆盖：
   已有版本路径、粘贴完整端点、本机 / 局域网 http 识别。
 - `agent/web`：HTML 清理与实体解码、DDG/Bing 结果解析、内网 URL 拒绝。
 - `db`：模板种子、无 Mock、设置往返持久化。
-- `git`：真实临时仓库的 untracked 状态、HEAD ↔ 工作区 Diff。
+- `git`：真实临时仓库的 untracked 状态、HEAD ↔ 工作区 Diff、分支列表、切换与新建。
 - `agent/tools`：真实 PowerShell 命令执行、stdout/stderr 捕获、退出码、
   取消后进程终止。
 - `error` / `secrets`：错误友好化、令牌脱敏、Keyring 服务名。
@@ -45,7 +45,7 @@ Rust 测试覆盖：
 - 模型卡片编辑、上下文预设、默认模型切换、分组能力矩阵与批量标记。
 - 工具调用摘要行：18 次调用默认折叠为一行、显示次数与失败数、展开紧凑步骤。
 - Rail GitHub 入口：图标、悬浮提示与 opener 权限配置。
-- 输入框底部项目 / Git 分支状态栏；点击项目名切换工作区、添加目录，非 Git 项目隐藏分支。
+- 输入框底部项目 / Git 分支状态栏；点击项目名切换工作区、添加目录；点击分支切换或新建分支。
 - 配色卡片：玄武 / 森林 / 薄荷 / 蜜蜂 / 羊皮纸，深浅主题下整页背景、表面、强调色、460ms 过渡与持久化。
 - 思考强度选择器 8 档、会话持久化与各协议请求字段。
 - Agent 任务创建、联网搜索、网页读取、只读子代理与时间线输出。
@@ -79,9 +79,9 @@ Rust 测试覆盖：
 
 | 产物 | 结果 |
 | --- | --- |
-| `release/Basalt.exe` | 构建成功（21,588,992 字节，约 20.59 MiB） |
-| `release/Basalt_0.1.14_x64-setup.exe` | NSIS 安装包构建成功（7.61 MiB） |
-| `release/Basalt-0.1.14-x64-portable.zip` | 便携压缩包构建成功（9.18 MiB） |
+| `release/Basalt.exe` | 构建成功（21,601,280 字节，约 20.60 MiB） |
+| `release/Basalt_0.1.15_x64-setup.exe` | NSIS 安装包构建成功（7.60 MiB） |
+| `release/Basalt-0.1.15-x64-portable.zip` | 便携压缩包构建成功（9.18 MiB） |
 | 首次启动 | 成功；窗口 “Basalt Workbench”；数据目录正常创建 |
 | 遥测 / 网络 | 启动不联网；仅供应商请求与 Agent 联网工具会访问外部服务 |
 | 静默安装 | `/S /D=<temp>`，退出码 0 |

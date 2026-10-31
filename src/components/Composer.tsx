@@ -13,6 +13,7 @@ import {
   GitFork,
   ImagePlus,
   Paperclip,
+  Plus,
   Settings2,
   Shield,
   ShieldAlert,
@@ -113,6 +114,10 @@ export function Composer() {
   const projectGit = useAppStore((state) => state.projectGit);
   const projects = useAppStore((state) => state.projects);
   const setCurrentProject = useAppStore((state) => state.setCurrentProject);
+  const refreshGit = useAppStore((state) => state.refreshGit);
+  const refreshChanges = useAppStore((state) => state.refreshChanges);
+  const closeOpenFile = useAppStore((state) => state.closeOpenFile);
+  const setDiff = useAppStore((state) => state.setDiff);
   const providers = useAppStore((state) => state.providers);
   const settings = useAppStore((state) => state.settings);
   const activeChat = useAppStore((state) => state.activeChat);
@@ -147,6 +152,12 @@ export function Composer() {
   const [reasoning, setReasoning] = useState<ReasoningEffort>("medium");
   const [reasoningOpen, setReasoningOpen] = useState(false);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
+  const [branchMenuOpen, setBranchMenuOpen] = useState(false);
+  const [branches, setBranches] = useState<string[]>([]);
+  const [branchesLoading, setBranchesLoading] = useState(false);
+  const [branchBusy, setBranchBusy] = useState(false);
+  const [branchError, setBranchError] = useState<string | null>(null);
+  const [newBranch, setNewBranch] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modelPickerRef = useClickOutside<HTMLDivElement>(
     () => setModelPickerOpen(false),
@@ -163,6 +174,10 @@ export function Composer() {
   const projectMenuRef = useClickOutside<HTMLDivElement>(
     () => setProjectMenuOpen(false),
     projectMenuOpen,
+  );
+  const branchMenuRef = useClickOutside<HTMLDivElement>(
+    () => setBranchMenuOpen(false),
+    branchMenuOpen,
   );
   const provider = chatProviders.find((item) => item.id === providerId) ?? null;
   const modelInfo = provider?.models.find((item) => item.id === model.trim()) ?? null;
@@ -227,11 +242,20 @@ export function Composer() {
   }, [session?.id, session?.reasoningEffort]);
 
   useEffect(() => {
+    setBranchMenuOpen(false);
+    setBranches([]);
+    setBranchError(null);
+    setNewBranch("");
+  }, [project?.id]);
+
+  useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setModelPickerOpen(false);
       setPermissionOpen(false);
       setReasoningOpen(false);
+      setProjectMenuOpen(false);
+      setBranchMenuOpen(false);
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
@@ -413,6 +437,71 @@ export function Composer() {
       model: model.trim(),
       reasoningEffort: supportsReasoning ? reasoning : undefined,
     });
+  };
+
+  const toggleBranchMenu = async () => {
+    if (!project) return;
+    const next = !branchMenuOpen;
+    setBranchMenuOpen(next);
+    if (!next) return;
+    setBranchError(null);
+    setBranchesLoading(true);
+    try {
+      setBranches(await api.gitBranches(project.id));
+    } catch (error) {
+      setBranchError(errorMessage(error));
+    } finally {
+      setBranchesLoading(false);
+    }
+  };
+
+  const switchBranch = async (branch: string) => {
+    if (!project || branchBusy) return;
+    if (branch === projectGit?.branch) {
+      setBranchMenuOpen(false);
+      return;
+    }
+    setBranchBusy(true);
+    setBranchError(null);
+    try {
+      await api.gitCheckoutBranch(project.id, branch);
+      closeOpenFile();
+      setDiff(null);
+      await refreshGit();
+      await refreshChanges();
+      setBranchMenuOpen(false);
+      notify("success", "已切换分支", branch);
+    } catch (error) {
+      const message = errorMessage(error);
+      setBranchError(message);
+      notify("error", "切换分支失败", message);
+    } finally {
+      setBranchBusy(false);
+    }
+  };
+
+  const createBranch = async () => {
+    const name = newBranch.trim();
+    if (!project || !name || branchBusy) return;
+    setBranchBusy(true);
+    setBranchError(null);
+    try {
+      await api.gitCreateBranch(project.id, name);
+      closeOpenFile();
+      setDiff(null);
+      await refreshGit();
+      await refreshChanges();
+      setBranches(await api.gitBranches(project.id));
+      setNewBranch("");
+      setBranchMenuOpen(false);
+      notify("success", "已新建并切换分支", name);
+    } catch (error) {
+      const message = errorMessage(error);
+      setBranchError(message);
+      notify("error", "新建分支失败", message);
+    } finally {
+      setBranchBusy(false);
+    }
   };
 
   return (
@@ -757,13 +846,84 @@ export function Composer() {
               ) : null}
             </div>
             {projectGit?.isRepo && projectGit.branch ? (
-              <span
-                className="composer-workspace-item branch"
-                title={`Git 分支：${projectGit.branch}`}
-              >
-                <GitFork size={12} />
-                <span className="name">{projectGit.branch}</span>
-              </span>
+              <div className="composer-branch-switch" ref={branchMenuRef}>
+                <button
+                  type="button"
+                  className="composer-workspace-item branch composer-branch-trigger"
+                  onClick={() => void toggleBranchMenu()}
+                  aria-haspopup="menu"
+                  aria-expanded={branchMenuOpen}
+                  title="切换 Git 分支"
+                >
+                  <GitFork size={12} />
+                  <span className="name">{projectGit.branch}</span>
+                  <ChevronDown size={10} className="composer-project-chevron" />
+                </button>
+                {branchMenuOpen ? (
+                  <div className="composer-branch-menu" role="menu">
+                    <div className="composer-project-menu-label">切换分支</div>
+                    {branchesLoading ? (
+                      <div className="composer-branch-note">加载分支…</div>
+                    ) : null}
+                    {branchError ? (
+                      <div className="composer-branch-error">{branchError}</div>
+                    ) : null}
+                    <div className="composer-branch-list">
+                      {!branchesLoading &&
+                      branches.length === 0 &&
+                      !branchError ? (
+                        <div className="composer-branch-note">没有本地分支</div>
+                      ) : null}
+                      {branches.map((branch) => (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          key={branch}
+                          className={clsx(
+                            "composer-project-option",
+                            branch === projectGit.branch && "active",
+                          )}
+                          onClick={() => void switchBranch(branch)}
+                          disabled={branchBusy}
+                        >
+                          <GitFork size={13} />
+                          <span className="composer-project-option-meta">
+                            <span className="n">{branch}</span>
+                          </span>
+                          {branch === projectGit.branch ? (
+                            <Check size={11} className="composer-project-check" />
+                          ) : null}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="composer-project-menu-divider" />
+                    <div className="composer-branch-create">
+                      <input
+                        className="composer-branch-input"
+                        value={newBranch}
+                        onChange={(event) => setNewBranch(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void createBranch();
+                          }
+                        }}
+                        placeholder="新分支名"
+                        disabled={branchBusy}
+                        spellCheck={false}
+                      />
+                      <button
+                        type="button"
+                        className="btn xs"
+                        onClick={() => void createBranch()}
+                        disabled={!newBranch.trim() || branchBusy}
+                      >
+                        <Plus size={11} /> 新建
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             ) : null}
           </div>
           <div className="composer-alerts">

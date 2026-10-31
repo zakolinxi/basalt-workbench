@@ -151,6 +151,37 @@ pub fn git_status(state: State<'_, AppState>, project_id: String) -> AppResult<G
 }
 
 #[tauri::command]
+pub fn git_branches(
+    state: State<'_, AppState>,
+    project_id: String,
+) -> AppResult<Vec<String>> {
+    let (_, root) = project_root(&state, &project_id)?;
+    crate::git::branches(&root)
+}
+
+#[tauri::command]
+pub fn git_checkout_branch(
+    state: State<'_, AppState>,
+    project_id: String,
+    branch: String,
+) -> AppResult<GitStatus> {
+    let (_, root) = project_root(&state, &project_id)?;
+    crate::git::checkout_branch(&root, &branch)?;
+    Ok(crate::git::status(&root))
+}
+
+#[tauri::command]
+pub fn git_create_branch(
+    state: State<'_, AppState>,
+    project_id: String,
+    branch: String,
+) -> AppResult<GitStatus> {
+    let (_, root) = project_root(&state, &project_id)?;
+    crate::git::create_branch(&root, &branch)?;
+    Ok(crate::git::status(&root))
+}
+
+#[tauri::command]
 pub fn git_file_diff(
     state: State<'_, AppState>,
     project_id: String,

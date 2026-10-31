@@ -24,6 +24,81 @@ pub fn is_repo(root: &Path) -> bool {
         .unwrap_or(false)
 }
 
+pub fn branches(root: &Path) -> AppResult<Vec<String>> {
+    if !is_repo(root) {
+        return Err(AppError::msg("当前目录不是 Git 仓库"));
+    }
+    let output = run_git(
+        root,
+        &[
+            "for-each-ref",
+            "--sort=-committerdate",
+            "--format=%(refname:short)",
+            "refs/heads",
+        ],
+    )?;
+    if !output.status.success() {
+        return Err(AppError::msg(format!(
+            "读取分支失败：{}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(str::to_string)
+        .collect())
+}
+
+fn validate_branch_name(root: &Path, branch: &str) -> AppResult<String> {
+    let branch = branch.trim();
+    if branch.is_empty() || branch.chars().count() > 200 {
+        return Err(AppError::msg("分支名不能为空且不得超过 200 字符"));
+    }
+    if branch.starts_with('-') {
+        return Err(AppError::msg("分支名不能以 - 开头"));
+    }
+    let output = run_git(root, &["check-ref-format", "--branch", branch])?;
+    if !output.status.success() {
+        return Err(AppError::msg(format!(
+            "分支名无效：{}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+    Ok(branch.to_string())
+}
+
+pub fn checkout_branch(root: &Path, branch: &str) -> AppResult<()> {
+    if !is_repo(root) {
+        return Err(AppError::msg("当前目录不是 Git 仓库"));
+    }
+    let branch = validate_branch_name(root, branch)?;
+    let output = run_git(root, &["checkout", &branch])?;
+    if !output.status.success() {
+        return Err(AppError::msg(format!(
+            "切换分支失败：{}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+    Ok(())
+}
+
+pub fn create_branch(root: &Path, branch: &str) -> AppResult<()> {
+    if !is_repo(root) {
+        return Err(AppError::msg("当前目录不是 Git 仓库"));
+    }
+    let branch = validate_branch_name(root, branch)?;
+    let output = run_git(root, &["checkout", "-b", &branch])?;
+    if !output.status.success() {
+        return Err(AppError::msg(format!(
+            "新建分支失败：{}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+    Ok(())
+}
+
 pub fn status(root: &Path) -> GitStatus {
     if !is_repo(root) {
         return GitStatus {
@@ -187,11 +262,20 @@ mod tests {
         git(root, &["config", "user.email", "basalt@example.com"]);
         git(root, &["config", "user.name", "Basalt"]);
         std::fs::write(root.join("hello.txt"), "one\ntwo\n").unwrap();
-        let status = status(root);
-        assert!(status.is_repo);
-        assert!(status.entries.iter().any(|e| e.untracked));
+        let initial = status(root);
+        assert!(initial.is_repo);
+        assert!(initial.entries.iter().any(|e| e.untracked));
         git(root, &["add", "hello.txt"]);
         git(root, &["commit", "-m", "initial"]);
+        assert_eq!(branches(root).unwrap(), vec!["main".to_string()]);
+        create_branch(root, "feature").unwrap();
+        assert_eq!(status(root).branch.as_deref(), Some("feature"));
+        let all = branches(root).unwrap();
+        assert!(all.contains(&"main".to_string()));
+        assert!(all.contains(&"feature".to_string()));
+        checkout_branch(root, "main").unwrap();
+        assert_eq!(status(root).branch.as_deref(), Some("main"));
+        assert!(create_branch(root, "bad branch").is_err());
         std::fs::write(root.join("hello.txt"), "one\nTWO\n").unwrap();
         let diff = file_diff(root, "hello.txt", "demo").unwrap();
         assert!(diff.old_text.contains("two"));

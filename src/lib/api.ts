@@ -81,6 +81,12 @@ export const api = {
       input: { projectId, path, content, expectedHash },
     }),
   gitStatus: (projectId: string) => invoke<GitStatus>("git_status", { projectId }),
+  gitBranches: (projectId: string) =>
+    invoke<string[]>("git_branches", { projectId }),
+  gitCheckoutBranch: (projectId: string, branch: string) =>
+    invoke<GitStatus>("git_checkout_branch", { projectId, branch }),
+  gitCreateBranch: (projectId: string, branch: string) =>
+    invoke<GitStatus>("git_create_branch", { projectId, branch }),
   gitFileDiff: (projectId: string, path: string) =>
     invoke<FileDiff>("git_file_diff", { projectId, path }),
 
