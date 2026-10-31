@@ -2,6 +2,7 @@ import { isValidElement, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { CopyButton } from "./ui";
 import { useAppStore } from "../lib/store";
 
@@ -19,12 +20,21 @@ const components: Components = {
     return (
       <a
         href={href}
-        title={href ? `复制链接：${href}` : undefined}
+        title={href ? `打开链接：${href}` : undefined}
         onClick={(event) => {
           event.preventDefault();
-          if (!href) return;
-          void navigator.clipboard.writeText(href).then(() => {
-            useAppStore.getState().notify("info", "链接已复制", href);
+          const target = href?.trim();
+          if (!target) return;
+          if (!/^https?:\/\//i.test(target)) {
+            useAppStore
+              .getState()
+              .notify("warning", "无法打开链接", "仅支持 http/https 链接");
+            return;
+          }
+          void openUrl(target).catch((error) => {
+            useAppStore
+              .getState()
+              .notify("error", "打开链接失败", String(error));
           });
         }}
       >
