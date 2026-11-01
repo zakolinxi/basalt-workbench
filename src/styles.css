@@ -1437,6 +1437,12 @@ a {
   gap: 8px;
   animation: msg-in 0.16s ease both;
 }
+.messages > .msg.assistant + .msg.assistant {
+  margin-top: -16px;
+}
+.messages > .msg.assistant + .msg.assistant > .msg-head {
+  display: none;
+}
 @keyframes msg-in {
   from {
     opacity: 0;

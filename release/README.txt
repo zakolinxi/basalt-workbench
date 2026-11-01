@@ -1,16 +1,16 @@
-BASALT 0.1.20 — Windows x64
+BASALT 0.1.21 — Windows x64
 ===========================
 
 Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）。
 
 本次更新
 --------
+- 连续 Assistant 消息合并为同一段输出：仅首条显示 BASALT 角色、模型与时间头，
+  后续回复直接衔接，Agent 多轮工具调用之间不再重复起头。
+- 连续消息间距收为 10px；流式输出接在已有回复后同样不再重复角色头。
 - 缓存条可点击展开「Token 用量」面板：标题显示含输出的总量，
   下方列出缓存命中率、未缓存输入、缓存读取与输出。
-- 缓存条改为高亮样式：绿色描边与浅色底、绿色数据库图标、加粗命中率，
-  在深色和浅色主题下都更醒目。
 - 点击外部或按 Esc 关闭面板；上下文面板与缓存面板互斥。
-- 输入框状态栏缓存条：按供应商 + 模型累计 tokens 与缓存命中率。
 - 统一解析各协议缓存字段：OpenAI Chat（prompt_tokens_details.cached_tokens、
   DeepSeek prompt_cache_hit_tokens）、OpenAI Responses（input_tokens_details）、
   Anthropic（缓存读取 + 写入归一化）、Gemini（cachedContentTokenCount）。
@@ -26,7 +26,7 @@ Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）�
 
 两种方式
 --------
-1. 安装版：运行 Basalt_0.1.20_x64-setup.exe，按向导安装。
+1. 安装版：运行 Basalt_0.1.21_x64-setup.exe，按向导安装。
 2. 便携版：直接运行 Basalt.exe。便携版仍使用 %APPDATA%\com.basalt.workbench
    保存数据库、附件与设置。
 

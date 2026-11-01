@@ -21,6 +21,8 @@ GitHub：<https://github.com/zakolinxi/basalt-workbench>
 - **模型接口自动选择**：首次调用后探测同一供应商可用的 Chat / Responses 端点，
   按实测延迟与接口库的缓存/工具偏好选型并持久化；模型卡片可手动重新检测，
   后续聊天、Agent、审查与子代理自动使用选定接口。
+- **连续回复合并**：同一轮 Agent 的连续 Assistant 消息只显示一次 BASALT 头，
+  后续文字直接衔接，长任务阅读更连贯。
 - **缓存用量可见**：输入框状态栏按供应商 + 模型累计 tokens 与缓存命中率，
   统一解析 OpenAI Chat/Responses、Anthropic 与 Gemini 的缓存字段；点击展开
   「Token 用量」面板，查看缓存命中、未缓存输入、缓存读取与输出。
@@ -65,8 +67,8 @@ npm run tauri build
 本机已验证产物（见 `release/`）：
 
 - `release/Basalt.exe` — 免安装 EXE（20.78 MiB）
-- `release/Basalt_0.1.20_x64-setup.exe` — NSIS 安装包（7.64 MiB）
-- `release/Basalt-0.1.20-x64-portable.zip` — 便携压缩包（9.52 MiB）
+- `release/Basalt_0.1.21_x64-setup.exe` — NSIS 安装包（7.64 MiB）
+- `release/Basalt-0.1.21-x64-portable.zip` — 便携压缩包（9.52 MiB）
 - `release/SHA256SUMS.txt` — 校验和
 
 原始构建位置：`src-tauri/target/release/basalt.exe`、
