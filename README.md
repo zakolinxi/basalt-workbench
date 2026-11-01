@@ -20,6 +20,8 @@ GitHub：<https://github.com/zakolinxi/basalt-workbench>
   兼容网关拒绝时自动回退，不增加额外请求。
 - **启动与资源**：Monaco、xterm、设置/供应商/图像视图按需加载，终端首次打开才挂载；
   首屏主包由约 5.3 MB 降至约 0.8 MB，减少常驻内存。
+- **轻量对话界面**：用户消息使用右侧气泡，Assistant 回复使用紧凑头像与模型标签，
+  时间/复制悬停出现；输入框合并为单一圆角面板，终端占满宽度并限制在窗口 32% 高度内。
 - **多供应商、多协议**：OpenAI Chat Completions、OpenAI Responses、Anthropic Messages、
   Google Gemini、Ollama、OpenAI 兼容接口与自定义网关；协议适配器、Agent Runtime、
   Image Provider 三层解耦。模板内置当前主力模型的上下文、视觉与工具预设，并支持
@@ -77,8 +79,8 @@ npm run tauri build
 本机已验证产物（见 `release/`）：
 
 - `release/Basalt.exe` — 免安装 EXE（20.87 MiB）
-- `release/Basalt_0.1.26_x64-setup.exe` — NSIS 安装包（7.73 MiB）
-- `release/Basalt-0.1.26-x64-portable.zip` — 便携压缩包（9.61 MiB）
+- `release/Basalt_0.1.27_x64-setup.exe` — NSIS 安装包（7.73 MiB）
+- `release/Basalt-0.1.27-x64-portable.zip` — 便携压缩包（9.61 MiB）
 - `release/SHA256SUMS.txt` — 校验和
 
 原始构建位置：`src-tauri/target/release/basalt.exe`、

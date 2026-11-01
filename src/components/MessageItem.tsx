@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { FileText, RotateCcw, Wrench } from "lucide-react";
+import { FileText, RotateCcw } from "lucide-react";
 import clsx from "clsx";
 import { save } from "@tauri-apps/plugin-dialog";
 import { api, errorMessage } from "../lib/api";
@@ -63,21 +63,16 @@ export function MessageItem({
   const files = message.attachments.filter((attachment) => attachment.kind !== "image");
   return (
     <article className={clsx("msg", isUser ? "user" : "assistant")}>
-      <header className="msg-head">
-        <span className="msg-role">
-          <span className="role-mark">{isUser ? "U" : "B"}</span>
-          {isUser ? "YOU" : "BASALT"}
-          {message.model ? (
-            <span className="mono" style={{ color: "var(--fg-3)", fontSize: 9 }}>
-              {message.model}
-            </span>
-          ) : null}
-          {message.taskId ? (
-            <span className="badge" title={`任务 ${message.taskId}`}>
-              <Wrench size={8} /> TASK
-            </span>
-          ) : null}
-        </span>
+      <header className={clsx("msg-head", isUser && "user-meta")}>
+        {isUser ? null : (
+          <span className="msg-role">
+            <span className="role-mark">B</span>
+            Basalt
+            {message.model ? (
+              <span className="msg-model">{message.model}</span>
+            ) : null}
+          </span>
+        )}
         <span className="msg-meta">
           {formatTime(message.createdAt)}
           <CopyButton text={message.content} label="复制" />
@@ -129,24 +124,17 @@ export function MessageItem({
 export function StreamingItem({
   text,
   model,
-  task,
 }: {
   text: string;
   model?: string | null;
-  task?: boolean;
 }) {
   return (
     <article className="msg assistant">
       <header className="msg-head">
         <span className="msg-role">
           <span className="role-mark">B</span>
-          BASALT
-          {model ? (
-            <span className="mono" style={{ color: "var(--fg-3)", fontSize: 9 }}>
-              {model}
-            </span>
-          ) : null}
-          {task ? <span className="badge">AGENT</span> : null}
+          Basalt
+          {model ? <span className="msg-model">{model}</span> : null}
         </span>
         <span className="msg-meta">
           <span className="streaming-hint">

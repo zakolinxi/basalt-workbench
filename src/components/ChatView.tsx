@@ -249,7 +249,6 @@ export function ChatView() {
                 key={stream.messageId}
                 text={stream.text}
                 model={session?.model}
-                task={Boolean(stream.taskId)}
               />
             ))}
             {trailingActivity.length > 0 ? (

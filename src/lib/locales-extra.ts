@@ -25,8 +25,8 @@ const en: LocaleDictionary = {
   "CTRL+S 保存 · READ-ONLY 预览": "CTRL+S SAVE · READ-ONLY PREVIEW",
   "没有打开的终端": "No open terminal",
   "新建 PowerShell": "New PowerShell",
-  "Agent 执行的命令会记录在任务时间线中":
-    "Agent commands are recorded in the task timeline",
+  "Agent 执行的命令会记录在对话中":
+    "Agent commands are recorded in the conversation",
   "图像工作区": "Image studio",
   "GitHub 仓库": "GitHub repository",
   "主题：深色": "Theme: Dark",
@@ -181,8 +181,8 @@ const ja: LocaleDictionary = {
   "CTRL+S 保存 · READ-ONLY 预览": "CTRL+S 保存 · READ-ONLY プレビュー",
   "没有打开的终端": "開いているターミナルはありません",
   "新建 PowerShell": "PowerShell を新規作成",
-  "Agent 执行的命令会记录在任务时间线中":
-    "エージェントのコマンドはタスクタイムラインに記録されます",
+  "Agent 执行的命令会记录在对话中":
+    "エージェントのコマンドは会話に記録されます",
   "图像工作区": "画像ワークスペース",
   "GitHub 仓库": "GitHub リポジトリ",
   "主题：深色": "テーマ：ダーク",
@@ -337,8 +337,8 @@ const ko: LocaleDictionary = {
   "CTRL+S 保存 · READ-ONLY 预览": "CTRL+S 저장 · READ-ONLY 미리보기",
   "没有打开的终端": "열린 터미널 없음",
   "新建 PowerShell": "새 PowerShell",
-  "Agent 执行的命令会记录在任务时间线中":
-    "에이전트 명령은 작업 타임라인에 기록됩니다",
+  "Agent 执行的命令会记录在对话中":
+    "에이전트 명령은 대화에 기록됩니다",
   "图像工作区": "이미지 작업 공간",
   "GitHub 仓库": "GitHub 저장소",
   "主题：深色": "테마: 다크",

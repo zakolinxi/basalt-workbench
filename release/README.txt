@@ -1,19 +1,17 @@
-BASALT 0.1.26 — Windows x64
+BASALT 0.1.27 — Windows x64
 ===========================
 
 Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）。
 
 本次更新
 --------
-- 修复缓存条跨会话串数据：缓存用量改为按「会话 + 供应商 + 模型」统计，
-  切换会话显示各自数据，新会话从零开始。
-- 启动与内存：Monaco、xterm、设置/供应商/图像视图按需加载；终端首次打开才挂载。
-  首屏主入口 JS 从约 5.27 MB 降至约 0.82 MB。
-- 费用优化：旧消息的图片/附件不再重复发送；单次 Agent 工具回传上限 48k 字符；
-  接口探测只生成 1 token。
-- Anthropic Agent / 多轮聊天启用提示缓存（system、tools、最后消息），
-  网关拒绝 cache_control 时自动无缓存重试。
-- 新增 sessions / tasks / projects 启动排序索引。
+- 终端面板占满可用宽度，默认高度缩小，最大限制在窗口 32% 内；
+  拖拽与 xterm 自动适配，避免压缩上方聊天空间。
+- 用户消息改为右对齐圆角气泡；Assistant 回复使用轻量头像、Basalt 名称与模型胶囊，
+  时间/复制悬停显示，连续回复只保留首个角色头。
+- 输入框收敛为单一圆角面板，操作栏与会话状态行不再嵌套第二层边框；
+  发送按钮改为圆形，减少未验证工具徽标等视觉噪音。
+- 保留 0.1.26 的会话级缓存统计、按需加载与费用优化。
 - 统一解析各协议缓存字段：OpenAI Chat（prompt_tokens_details.cached_tokens、
   DeepSeek prompt_cache_hit_tokens）、OpenAI Responses（input_tokens_details）、
   Anthropic（缓存读取 + 写入归一化）、Gemini（cachedContentTokenCount）。
@@ -29,7 +27,7 @@ Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）�
 
 两种方式
 --------
-1. 安装版：运行 Basalt_0.1.26_x64-setup.exe，按向导安装。
+1. 安装版：运行 Basalt_0.1.27_x64-setup.exe，按向导安装。
 2. 便携版：直接运行 Basalt.exe。便携版仍使用 %APPDATA%\com.basalt.workbench
    保存数据库、附件与设置。
 

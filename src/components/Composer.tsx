@@ -879,13 +879,8 @@ export function Composer() {
             ) : null}
           </div>
         ) : null}
-        {modelInfo?.capabilities.tools === "unverified" ? (
-          <Badge title="工具调用能力尚未经过真实测试">TOOLS?</Badge>
-        ) : modelInfo?.capabilities.tools === "unsupported" ? (
+        {modelInfo?.capabilities.tools === "unsupported" ? (
           <Badge tone="err">NO TOOLS</Badge>
-        ) : null}
-        {mode === "agent" && !modelInfo ? (
-          <Badge tone="warn">TOOLS 未验证</Badge>
         ) : null}
         <span className="spacer" />
         {isImageCommand ? (

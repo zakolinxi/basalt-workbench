@@ -374,7 +374,7 @@ export function TerminalPanel({ style }: { style?: CSSProperties }) {
             新建 PowerShell
           </button>
           <span className="muted" style={{ textTransform: "none", letterSpacing: 0 }}>
-            Agent 执行的命令会记录在任务时间线中
+            Agent 执行的命令会记录在对话中
           </span>
         </div>
       ) : (

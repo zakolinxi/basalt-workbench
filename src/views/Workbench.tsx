@@ -77,7 +77,11 @@ export function Workbench() {
         } else {
           const next = Math.max(
             140,
-            Math.min(window.innerHeight - 260, initial - (moveEvent.clientY - startY)),
+            Math.min(
+              window.innerHeight - 260,
+              Math.round(window.innerHeight * 0.32),
+              initial - (moveEvent.clientY - startY),
+            ),
           );
           setLayout({ terminalHeight: next });
         }
@@ -157,6 +161,7 @@ export function Workbench() {
                   style={{
                     display: layout.terminalCollapsed ? "none" : "flex",
                     flex: "none",
+                    width: "100%",
                   }}
                 >
                   <Suspense
