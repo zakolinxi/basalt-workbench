@@ -171,8 +171,8 @@ export const api = {
       model,
       mode,
     }),
-  usageStats: (providerId: string, model: string) =>
-    invoke<UsageStats>("usage_stats", { providerId, model }),
+  usageStats: (sessionId: string, providerId: string, model: string) =>
+    invoke<UsageStats>("usage_stats", { sessionId, providerId, model }),
   runMetrics: (sessionId: string, taskId?: string | null) =>
     invoke<RunMetrics | null>("run_metrics", {
       sessionId,

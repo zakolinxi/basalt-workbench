@@ -507,6 +507,7 @@ async fn chat_send_inner(
     let adapter = chat_adapter_for(state, &rt, &model)?;
     let client = state.http.clone();
     let rt_for = rt.clone();
+    let request_messages_len = request_messages.len();
     let request = ChatRequest {
         model: model.clone(),
         messages: request_messages,
@@ -514,6 +515,7 @@ async fn chat_send_inner(
         max_tokens: None,
         temperature: None,
         reasoning_effort,
+        cache_prompt: request_messages_len >= 4,
     };
     let (tx, mut rx) = unbounded_channel::<ProviderEvent>();
     let token_for = token.clone();
@@ -558,14 +560,6 @@ async fn chat_send_inner(
     let duration_ms = started.elapsed().as_millis() as u64;
     if !usage.is_empty() {
         let conn = state.db();
-        let _ = crate::db::record_usage(
-            &conn,
-            &input.provider_id,
-            &model,
-            usage.input_tokens,
-            usage.cached_tokens,
-            usage.output_tokens,
-        );
         let _ = crate::db::record_run_metric(
             &conn,
             &session.id,
@@ -771,12 +765,14 @@ fn estimate_tokens(text: &str) -> u64 {
 #[tauri::command]
 pub fn usage_stats(
     state: State<'_, AppState>,
+    session_id: String,
     provider_id: String,
     model: String,
 ) -> AppResult<UsageStats> {
     let conn = state.db();
-    Ok(crate::db::get_usage_stats(
+    Ok(crate::db::get_session_usage(
         &conn,
+        &session_id,
         &provider_id,
         model.trim(),
     ))

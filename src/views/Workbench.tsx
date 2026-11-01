@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   FolderOpen,
   PanelLeft,
@@ -14,9 +21,14 @@ import { Sidebar } from "../components/Sidebar";
 import { TitlebarDrag } from "../components/WindowControls";
 import { ChatView } from "../components/ChatView";
 import { RightPanel } from "../components/RightPanel";
-import { TerminalPanel } from "../components/TerminalPanel";
 import { Button, IconButton, TaskStatusBadge } from "../components/ui";
 import type { TaskStatus } from "../lib/types";
+
+const TerminalPanel = lazy(() =>
+  import("../components/TerminalPanel").then((module) => ({
+    default: module.TerminalPanel,
+  })),
+);
 
 export function Workbench() {
   const layout = useAppStore((state) => state.layout);
@@ -31,6 +43,11 @@ export function Workbench() {
   const [dragging, setDragging] = useState<"sidebar" | "right" | "terminal" | null>(
     null,
   );
+  const [terminalMounted, setTerminalMounted] = useState(false);
+
+  useEffect(() => {
+    if (!layout.terminalCollapsed) setTerminalMounted(true);
+  }, [layout.terminalCollapsed]);
 
   const beginResize = useCallback(
     (
@@ -135,14 +152,27 @@ export function Workbench() {
                   onPointerDown={(event) => beginResize("terminal", event)}
                 />
               ) : null}
-              <div
-                style={{
-                  display: layout.terminalCollapsed ? "none" : "flex",
-                  flex: "none",
-                }}
-              >
-                <TerminalPanel style={{ height: layout.terminalHeight }} />
-              </div>
+              {terminalMounted ? (
+                <div
+                  style={{
+                    display: layout.terminalCollapsed ? "none" : "flex",
+                    flex: "none",
+                  }}
+                >
+                  <Suspense
+                    fallback={
+                      <div
+                        className="terminal-loading"
+                        style={{ height: layout.terminalHeight }}
+                      >
+                        <span className="spinner" />
+                      </div>
+                    }
+                  >
+                    <TerminalPanel style={{ height: layout.terminalHeight }} />
+                  </Suspense>
+                </div>
+              ) : null}
             </>
           )}
         </div>

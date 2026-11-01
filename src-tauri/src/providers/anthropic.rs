@@ -119,19 +119,77 @@ fn usage_fields(usage: &Value) -> (Option<u64>, Option<u64>, Option<u64>) {
     )
 }
 
-fn tools_json(tools: &[super::ToolSchema]) -> Value {
-    Value::Array(
-        tools
-            .iter()
-            .map(|tool| {
-                json!({
-                    "name": tool.name,
-                    "description": tool.description,
-                    "input_schema": tool.parameters
-                })
+fn tools_json(tools: &[super::ToolSchema], cache: bool) -> Value {
+    let mut items: Vec<Value> = tools
+        .iter()
+        .map(|tool| {
+            json!({
+                "name": tool.name,
+                "description": tool.description,
+                "input_schema": tool.parameters
             })
-            .collect(),
-    )
+        })
+        .collect();
+    if cache {
+        if let Some(last) = items.last_mut().and_then(Value::as_object_mut) {
+            last.insert(
+                "cache_control".into(),
+                json!({ "type": "ephemeral" }),
+            );
+        }
+    }
+    Value::Array(items)
+}
+
+fn mark_last_message_for_cache(messages: &mut Value) {
+    let Some(last_message) = messages.as_array_mut().and_then(|items| items.last_mut()) else {
+        return;
+    };
+    let Some(block) = last_message
+        .get_mut("content")
+        .and_then(Value::as_array_mut)
+        .and_then(|blocks| blocks.last_mut())
+    else {
+        return;
+    };
+    if let Some(object) = block.as_object_mut() {
+        object.insert(
+            "cache_control".into(),
+            json!({ "type": "ephemeral" }),
+        );
+    }
+}
+
+fn strip_cache_control(value: &mut Value) {
+    match value {
+        Value::Object(map) => {
+            map.remove("cache_control");
+            for item in map.values_mut() {
+                strip_cache_control(item);
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                strip_cache_control(item);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn is_cache_control_error(error: &AppError) -> bool {
+    let message = error.user_message().to_lowercase();
+    message.contains("cache_control") || message.contains("prompt cach")
+}
+
+async fn send_body(
+    client: &reqwest::Client,
+    rt: &ProviderRuntime,
+    url: &str,
+    body: &Value,
+) -> AppResult<reqwest::Response> {
+    let builder = headers(request(client, reqwest::Method::POST, url, rt), rt).json(body);
+    ensure_ok(builder.send().await?).await
 }
 
 #[async_trait]
@@ -179,7 +237,10 @@ impl ChatAdapter for AnthropicAdapter {
         }
         let url = rt.endpoint("messages")?;
         let stream = rt.provider.stream;
-        let (system, messages) = convert_messages(&req.messages);
+        let (system, mut messages) = convert_messages(&req.messages);
+        if req.cache_prompt {
+            mark_last_message_for_cache(&mut messages);
+        }
         let mut body = json!({
             "model": req.model,
             "max_tokens": req.max_tokens.unwrap_or(4096),
@@ -187,10 +248,18 @@ impl ChatAdapter for AnthropicAdapter {
             "stream": stream
         });
         if let Some(system) = system {
-            body["system"] = Value::String(system);
+            body["system"] = if req.cache_prompt {
+                json!([{
+                    "type": "text",
+                    "text": system,
+                    "cache_control": { "type": "ephemeral" }
+                }])
+            } else {
+                Value::String(system)
+            };
         }
         if !req.tools.is_empty() {
-            body["tools"] = tools_json(&req.tools);
+            body["tools"] = tools_json(&req.tools, req.cache_prompt);
         }
         if let Some(temperature) = req.temperature {
             body["temperature"] = json!(temperature);
@@ -243,8 +312,17 @@ impl ChatAdapter for AnthropicAdapter {
             }
         }
         let body = merge_params(body, rt);
-        let builder = headers(request(client, reqwest::Method::POST, &url, rt), rt).json(&body);
-        let response = ensure_ok(builder.send().await?).await?;
+        let response = match send_body(client, rt, &url, &body).await {
+            Ok(response) => response,
+            // Some Anthropic-compatible gateways reject cache_control. Retry
+            // once without breakpoints so caching never breaks the request.
+            Err(error) if req.cache_prompt && is_cache_control_error(&error) => {
+                let mut fallback = body.clone();
+                strip_cache_control(&mut fallback);
+                send_body(client, rt, &url, &fallback).await?
+            }
+            Err(error) => return Err(error),
+        };
 
         if !stream {
             let value: Value = response.json().await?;
@@ -395,7 +473,12 @@ impl ChatAdapter for AnthropicAdapter {
 
 #[cfg(test)]
 mod tests {
-    use super::usage_fields;
+    use super::{
+        is_cache_control_error, mark_last_message_for_cache, strip_cache_control, tools_json,
+        usage_fields,
+    };
+    use crate::error::AppError;
+    use crate::providers::ToolSchema;
     use serde_json::json;
 
     #[test]
@@ -413,5 +496,43 @@ mod tests {
     fn ignores_missing_input_fields_on_message_delta() {
         let usage = json!({"output_tokens": 88});
         assert_eq!(usage_fields(&usage), (None, Some(88), None));
+    }
+
+    #[test]
+    fn adds_cache_breakpoints_for_agent_requests() {
+        let tools = vec![ToolSchema {
+            name: "read_file".into(),
+            description: "Read a file".into(),
+            parameters: json!({"type": "object"}),
+        }];
+        let cached = tools_json(&tools, true);
+        assert_eq!(cached[0]["cache_control"]["type"], "ephemeral");
+        assert!(tools_json(&tools, false)[0].get("cache_control").is_none());
+
+        let mut messages = json!([
+            {"role": "user", "content": [{"type": "text", "text": "goal"}]},
+            {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "ok"}]}
+        ]);
+        mark_last_message_for_cache(&mut messages);
+        assert_eq!(
+            messages[1]["content"][0]["cache_control"]["type"],
+            "ephemeral"
+        );
+        assert!(messages[0]["content"][0].get("cache_control").is_none());
+    }
+
+    #[test]
+    fn strips_cache_control_for_gateway_fallback() {
+        let mut body = json!({
+            "system": [{"type": "text", "text": "s", "cache_control": {"type": "ephemeral"}}],
+            "messages": [{"role": "user", "content": [{"type": "text", "text": "hi", "cache_control": {"type": "ephemeral"}}]}],
+            "tools": [{"name": "t", "cache_control": {"type": "ephemeral"}}]
+        });
+        strip_cache_control(&mut body);
+        assert!(body.to_string().find("cache_control").is_none());
+        assert!(is_cache_control_error(&AppError::msg(
+            "unsupported field: cache_control"
+        )));
+        assert!(!is_cache_control_error(&AppError::msg("connection timed out")));
     }
 }

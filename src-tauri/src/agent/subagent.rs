@@ -115,6 +115,7 @@ pub async fn run(
             max_tokens: None,
             temperature: None,
             reasoning_effort: task.reasoning_effort.clone(),
+            cache_prompt: true,
         };
         let adapter = chat_adapter_for(state, &rt, &model)?;
         let client = state.http.clone();
@@ -160,14 +161,6 @@ pub async fn run(
         let duration_ms = round_started.elapsed().as_millis() as u64;
         if !usage.is_empty() {
             let conn = state.db();
-            let _ = crate::db::record_usage(
-                &conn,
-                &task.provider_id,
-                &model,
-                usage.input_tokens,
-                usage.cached_tokens,
-                usage.output_tokens,
-            );
             let _ = crate::db::record_run_metric(
                 &conn,
                 &task.session_id,

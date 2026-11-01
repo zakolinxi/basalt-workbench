@@ -54,15 +54,19 @@ pub fn history_for_model(
 ) -> AppResult<Vec<ChatMessage>> {
     let messages = list_messages(state, session_id)?;
     let start = messages.len().saturating_sub(limit);
+    // Only the latest user turn needs vision/file payloads. Re-sending older
+    // attachments on every request multiplies input cost without adding much.
+    let last_user_index = messages.iter().rposition(|message| message.role == "user");
     let mut out = Vec::new();
     let mut image_count = 0usize;
-    for message in &messages[start..] {
+    for (offset, message) in messages[start..].iter().enumerate() {
         if message.kind == "image" {
             continue;
         }
         if message.role == "system" {
             continue;
         }
+        let latest_user = Some(start + offset) == last_user_index;
         let mut content = message.content.clone();
         let mut images = Vec::new();
         if message.role == "user" {
@@ -72,9 +76,9 @@ pub fn history_for_model(
                 .filter(|a| a.kind == "image")
                 .collect();
             if !image_attachments.is_empty() {
-                if include_images && image_count < 6 {
+                if include_images && latest_user {
                     for attachment in &image_attachments {
-                        if image_count >= 6 {
+                        if image_count >= 4 {
                             break;
                         }
                         if let Some(image) = load_image(attachment) {
@@ -102,26 +106,28 @@ pub fn history_for_model(
                     "\n\n[用户附带了文件：{}]",
                     files.iter().map(|a| a.name.clone()).collect::<Vec<_>>().join(", ")
                 ));
-                let mut total_chars = 0usize;
-                for attachment in &files {
-                    if total_chars >= 200_000 {
-                        content.push_str("\n\n[其余附件内容因长度限制未包含]");
-                        break;
-                    }
-                    if let Ok((text, truncated, binary, _)) =
-                        crate::files::read_text(Path::new(&attachment.path), 200_000)
-                    {
-                        if binary {
-                            continue;
+                if latest_user {
+                    let mut total_chars = 0usize;
+                    for attachment in &files {
+                        if total_chars >= 80_000 {
+                            content.push_str("\n\n[其余附件内容因长度限制未包含]");
+                            break;
                         }
-                        let (text, cut) = crate::files::truncate_chars(&text, 100_000);
-                        total_chars += text.chars().count();
-                        content.push_str(&format!(
-                            "\n\n--- 附件: {} ---\n~~~\n{}{}\n~~~",
-                            attachment.name,
-                            text,
-                            if truncated || cut { "\n[附件内容已截断]" } else { "" }
-                        ));
+                        if let Ok((text, truncated, binary, _)) =
+                            crate::files::read_text(Path::new(&attachment.path), 80_000)
+                        {
+                            if binary {
+                                continue;
+                            }
+                            let (text, cut) = crate::files::truncate_chars(&text, 40_000);
+                            total_chars += text.chars().count();
+                            content.push_str(&format!(
+                                "\n\n--- 附件: {} ---\n~~~\n{}{}\n~~~",
+                                attachment.name,
+                                text,
+                                if truncated || cut { "\n[附件内容已截断]" } else { "" }
+                            ));
+                        }
                     }
                 }
             }

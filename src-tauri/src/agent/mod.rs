@@ -38,6 +38,47 @@ struct AccCall {
     args: String,
 }
 
+/// Tool payloads are fed back to the model on every following round. Cap the
+/// total character budget while keeping the JSON shape valid.
+fn cap_tool_data(value: &mut Value, budget: &mut usize) -> bool {
+    match value {
+        Value::String(text) => {
+            let chars = text.chars().count();
+            if chars <= *budget {
+                *budget -= chars;
+                false
+            } else if *budget == 0 {
+                text.clear();
+                true
+            } else {
+                let (cut, _) = truncate_chars(text, *budget);
+                *text = format!("{cut}\n…[工具输出已截断]");
+                *budget = 0;
+                true
+            }
+        }
+        Value::Array(items) => {
+            let mut truncated = false;
+            if items.len() > 200 {
+                items.truncate(200);
+                truncated = true;
+            }
+            for item in items {
+                truncated |= cap_tool_data(item, budget);
+            }
+            truncated
+        }
+        Value::Object(map) => {
+            let mut truncated = false;
+            for item in map.values_mut() {
+                truncated |= cap_tool_data(item, budget);
+            }
+            truncated
+        }
+        _ => false,
+    }
+}
+
 pub fn enqueue(app: tauri::AppHandle, task_id: String) {
     tauri::async_runtime::spawn(async move {
         let state = app.state::<AppState>();
@@ -239,6 +280,7 @@ async fn run_task(
             } else {
                 task.reasoning_effort.clone()
             },
+            cache_prompt: true,
         };
         let adapter = chat_adapter_for(state, &rt, &model)?;
         let client = state.http.clone();
@@ -297,14 +339,6 @@ async fn run_task(
         let duration_ms = round_started.elapsed().as_millis() as u64;
         if !usage.is_empty() {
             let conn = state.db();
-            let _ = crate::db::record_usage(
-                &conn,
-                &task.provider_id,
-                &model,
-                usage.input_tokens,
-                usage.cached_tokens,
-                usage.output_tokens,
-            );
             let _ = crate::db::record_run_metric(
                 &conn,
                 &task.session_id,
@@ -661,8 +695,14 @@ async fn execute_tool_call(
         Ok(outcome) => {
             let data_json = serde_json::to_string(&outcome.data).unwrap_or_default();
             let (preview, _) = truncate_chars(&data_json, 70_000);
-            let model_content =
-                serde_json::to_string(&json!({"ok": true, "data": outcome.data}))?;
+            let mut model_data = outcome.data;
+            let mut budget = 48_000usize;
+            let tool_truncated = cap_tool_data(&mut model_data, &mut budget);
+            let model_content = serde_json::to_string(&json!({
+                "ok": true,
+                "data": model_data,
+                "truncated": tool_truncated
+            }))?;
             let preview_short: String = preview.chars().take(5000).collect();
             finish_tool_call(
                 state,
@@ -834,4 +874,31 @@ fn augment_report(state: &AppState, task: &Task, base: &str) -> String {
         ));
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::cap_tool_data;
+    use serde_json::json;
+
+    #[test]
+    fn caps_tool_payload_strings_and_arrays() {
+        let mut value = json!({
+            "content": "x".repeat(1000),
+            "items": (0..300).map(|i| i.to_string()).collect::<Vec<_>>()
+        });
+        let mut budget = 100usize;
+        assert!(cap_tool_data(&mut value, &mut budget));
+        assert!(value["content"].as_str().unwrap().chars().count() <= 130);
+        assert_eq!(value["items"].as_array().unwrap().len(), 200);
+    }
+
+    #[test]
+    fn keeps_small_tool_payloads_unchanged() {
+        let mut value = json!({"content": "small"});
+        let mut budget = 100usize;
+        assert!(!cap_tool_data(&mut value, &mut budget));
+        assert_eq!(value["content"], "small");
+        assert_eq!(budget, 95);
+    }
 }

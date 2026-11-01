@@ -1,15 +1,19 @@
-BASALT 0.1.25 — Windows x64
+BASALT 0.1.26 — Windows x64
 ===========================
 
 Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）。
 
 本次更新
 --------
-- 全部下拉框替换为应用内自定义菜单，不再使用原生 select 弹层。
-- 支持点击外部 / Esc 关闭、方向键与 Home/End 导航、Enter 选择、
-  选中标记、自动上下翻转与滚动跟随定位。
-- 设置、模型路由、供应商类型/协议、能力状态、图像参数与语言选择同步更新。
-- 保留四语言界面与森林配色 #238E52。
+- 修复缓存条跨会话串数据：缓存用量改为按「会话 + 供应商 + 模型」统计，
+  切换会话显示各自数据，新会话从零开始。
+- 启动与内存：Monaco、xterm、设置/供应商/图像视图按需加载；终端首次打开才挂载。
+  首屏主入口 JS 从约 5.27 MB 降至约 0.82 MB。
+- 费用优化：旧消息的图片/附件不再重复发送；单次 Agent 工具回传上限 48k 字符；
+  接口探测只生成 1 token。
+- Anthropic Agent / 多轮聊天启用提示缓存（system、tools、最后消息），
+  网关拒绝 cache_control 时自动无缓存重试。
+- 新增 sessions / tasks / projects 启动排序索引。
 - 统一解析各协议缓存字段：OpenAI Chat（prompt_tokens_details.cached_tokens、
   DeepSeek prompt_cache_hit_tokens）、OpenAI Responses（input_tokens_details）、
   Anthropic（缓存读取 + 写入归一化）、Gemini（cachedContentTokenCount）。
@@ -25,7 +29,7 @@ Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）�
 
 两种方式
 --------
-1. 安装版：运行 Basalt_0.1.25_x64-setup.exe，按向导安装。
+1. 安装版：运行 Basalt_0.1.26_x64-setup.exe，按向导安装。
 2. 便携版：直接运行 Basalt.exe。便携版仍使用 %APPDATA%\com.basalt.workbench
    保存数据库、附件与设置。
 

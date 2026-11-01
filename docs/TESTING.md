@@ -14,7 +14,7 @@
 | 前端单元测试 | `npx vitest run` | **23 passed**（Diff / 权限 / Base URL / 工具格式化 / i18n） |
 | 前端生产构建 | `npm run build` | 通过，生成 `dist/` |
 | Rust 编译检查 | `cargo check` | 通过 |
-| Rust 测试 | `cargo test` | **47 passed, 0 failed** |
+| Rust 测试 | `cargo test` | **51 passed, 0 failed** |
 
 前端测试覆盖 Diff、权限、Base URL 归一化、工具名称/目标格式化，
 以及 i18n 精确匹配、数字插值、空翻译与回退。
@@ -33,8 +33,9 @@ Rust 测试覆盖：
 - `agent/web`：HTML 清理与实体解码、DDG/Bing 结果解析、内网 URL 拒绝。
 - `providers/*` 缓存用量：OpenAI `prompt_tokens_details.cached_tokens`、
   DeepSeek `prompt_cache_hit_tokens`、Anthropic 缓存读写归一化、
-  `message_delta` 缺少输入字段时不清零、累计快照按字段取最大值。
-- `db`：模板种子、无 Mock、设置往返持久化、缓存用量累加与清理、
+  `message_delta` 缺少输入字段时不清零、累计快照按字段取最大值；
+  Anthropic `cache_control` 断点、无缓存回退与模型工具回传上限。
+- `db`：模板种子、无 Mock、设置往返持久化、会话级缓存用量隔离、
   运行指标按任务聚合与最新聊天指标读取。
 - `git`：真实临时仓库的 untracked 状态、HEAD ↔ 工作区 Diff、分支列表、切换与新建。
 - `agent/tools`：真实 PowerShell 命令执行、stdout/stderr 捕获、退出码、
@@ -72,6 +73,14 @@ Rust 测试覆盖：
   清除运行指标后确认仍显示「继续」回退按钮。
 - 自定义下拉：设置页 10 个、供应商页 2 个、能力矩阵 8 个全部替换，原生 `select` 数量为 0；
   语言、主题与能力状态下拉均可打开、选择与关闭，语言下拉切换后界面即时更新。
+- 会话缓存隔离：为两个会话写入不同 run_metrics 后切换查看，
+  `Cache usage test` 显示 `305.6K tok · 98.3%`，`再看看` 显示 `3.3K tok · 86.7%`，
+  无指标的新会话不显示缓存条；切换回原会话数值保持。
+- Anthropic 缓存请求：本地假服务验证 system 与最后消息均带 `cache_control`，
+  usage 归一化后为输入 4700 / 缓存读取 3000；被网关拒绝时无缓存重试。
+- 启动分包：首屏资源未加载 `CodeEditorView`、`TerminalPanel`、设置/供应商/图像视图；
+  主入口 JS 从约 5.27 MB 降至约 817 KB，Monaco 与 xterm 独立懒加载；
+  终端首次打开后正常挂载，确认不再占启动成本。
 - 四语言切换：在设置页依次切换 简体中文 → English → 日本語 → 한국어 → 简体中文，
   确认标题、工具摘要、测试结果、缓存命中与模型选择同步更新并正确还原；
   `Tools run: 3, 1 failed`、`ツール実行 3 回、1 件失敗`、
@@ -110,10 +119,10 @@ Rust 测试覆盖：
 
 | 产物 | 结果 |
 | --- | --- |
-| `release/Basalt.exe` | 构建成功（21,868,544 字节，约 20.86 MiB） |
-| `release/Basalt_0.1.25_x64-setup.exe` | NSIS 安装包构建成功（7.69 MiB） |
-| `release/Basalt-0.1.25-x64-portable.zip` | 便携压缩包构建成功（9.57 MiB） |
-| 发布 EXE 冒烟 | 用户正在运行 0.1.24，WebView2 数据目录占用；改用文件版本 0.1.25 校验，界面在隔离实例验证 |
+| `release/Basalt.exe` | 构建成功（21,888,000 字节，约 20.87 MiB） |
+| `release/Basalt_0.1.26_x64-setup.exe` | NSIS 安装包构建成功（7.73 MiB） |
+| `release/Basalt-0.1.26-x64-portable.zip` | 便携压缩包构建成功（9.61 MiB） |
+| 发布 EXE 冒烟 | 文件版本 0.1.26；界面与缓存隔离、懒加载在隔离实例验证 |
 | 首次启动 | 成功；窗口 “Basalt Workbench”；数据目录正常创建 |
 | 遥测 / 网络 | 启动不联网；仅供应商请求与 Agent 联网工具会访问外部服务 |
 | 静默安装 | `/S /D=<temp>`，退出码 0 |

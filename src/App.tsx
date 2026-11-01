@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { Rail } from "./components/Rail";
 import { TitlebarDrag, WindowControls } from "./components/WindowControls";
@@ -12,9 +12,22 @@ import type {
   TaskEventEnvelope,
 } from "./lib/types";
 import { Workbench } from "./views/Workbench";
-import { ProvidersView } from "./views/ProvidersView";
-import { ImageStudio } from "./views/ImageStudio";
-import { SettingsView } from "./views/SettingsView";
+
+const ProvidersView = lazy(() =>
+  import("./views/ProvidersView").then((module) => ({
+    default: module.ProvidersView,
+  })),
+);
+const ImageStudio = lazy(() =>
+  import("./views/ImageStudio").then((module) => ({
+    default: module.ImageStudio,
+  })),
+);
+const SettingsView = lazy(() =>
+  import("./views/SettingsView").then((module) => ({
+    default: module.SettingsView,
+  })),
+);
 
 export default function App() {
   const booted = useAppStore((state) => state.booted);
@@ -181,9 +194,19 @@ export default function App() {
           >
             <Workbench />
           </div>
-          {view === "providers" ? <ProvidersView /> : null}
-          {view === "images" ? <ImageStudio /> : null}
-          {view === "settings" ? <SettingsView /> : null}
+          {view !== "workbench" ? (
+            <Suspense
+              fallback={
+                <div className="view-loading">
+                  <span className="spinner" />
+                </div>
+              }
+            >
+              {view === "providers" ? <ProvidersView /> : null}
+              {view === "images" ? <ImageStudio /> : null}
+              {view === "settings" ? <SettingsView /> : null}
+            </Suspense>
+          ) : null}
         </div>
       </div>
       <WindowControls />

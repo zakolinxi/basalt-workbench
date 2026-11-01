@@ -141,16 +141,6 @@ CREATE TABLE IF NOT EXISTS model_endpoints (
   checked_at TEXT NOT NULL,
   PRIMARY KEY(provider_id, model)
 );
-CREATE TABLE IF NOT EXISTS usage_stats (
-  provider_id TEXT NOT NULL,
-  model TEXT NOT NULL,
-  input_tokens INTEGER NOT NULL DEFAULT 0,
-  cached_tokens INTEGER NOT NULL DEFAULT 0,
-  output_tokens INTEGER NOT NULL DEFAULT 0,
-  requests INTEGER NOT NULL DEFAULT 0,
-  updated_at TEXT NOT NULL,
-  PRIMARY KEY(provider_id, model)
-);
 CREATE TABLE IF NOT EXISTS run_metrics (
   id TEXT PRIMARY KEY,
   session_id TEXT NOT NULL,
@@ -193,6 +183,11 @@ CREATE TABLE IF NOT EXISTS image_generations (
   session_id TEXT,
   created_at TEXT NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_projects_opened ON projects(last_opened_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sessions_updated ON sessions(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sessions_project_updated ON sessions(project_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tasks_created ON tasks(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tasks_session_created ON tasks(session_id, created_at DESC);
 "#;
 
 fn seed(conn: &Connection) -> AppResult<()> {
@@ -501,40 +496,21 @@ pub fn save_model_endpoint(conn: &Connection, endpoint: &ModelEndpoint) -> AppRe
     Ok(())
 }
 
-pub fn record_usage(
+pub fn get_session_usage(
     conn: &Connection,
+    session_id: &str,
     provider_id: &str,
     model: &str,
-    input_tokens: u64,
-    cached_tokens: u64,
-    output_tokens: u64,
-) -> AppResult<()> {
-    conn.execute(
-        "INSERT INTO usage_stats(provider_id, model, input_tokens, cached_tokens, output_tokens, requests, updated_at)
-         VALUES(?1, ?2, ?3, ?4, ?5, 1, ?6)
-         ON CONFLICT(provider_id, model) DO UPDATE SET
-           input_tokens = input_tokens + excluded.input_tokens,
-           cached_tokens = cached_tokens + excluded.cached_tokens,
-           output_tokens = output_tokens + excluded.output_tokens,
-           requests = requests + 1,
-           updated_at = excluded.updated_at",
-        params![
-            provider_id,
-            model,
-            input_tokens as i64,
-            cached_tokens as i64,
-            output_tokens as i64,
-            now()
-        ],
-    )?;
-    Ok(())
-}
-
-pub fn get_usage_stats(conn: &Connection, provider_id: &str, model: &str) -> UsageStats {
+) -> UsageStats {
     conn.query_row(
-        "SELECT input_tokens, cached_tokens, output_tokens, requests, updated_at
-         FROM usage_stats WHERE provider_id = ?1 AND model = ?2",
-        params![provider_id, model],
+        "SELECT COALESCE(SUM(input_tokens), 0),
+                COALESCE(SUM(cached_tokens), 0),
+                COALESCE(SUM(output_tokens), 0),
+                COUNT(*),
+                MAX(created_at)
+         FROM run_metrics
+         WHERE session_id = ?1 AND provider_id = ?2 AND model = ?3",
+        params![session_id, provider_id, model],
         |row| {
             Ok(UsageStats {
                 provider_id: provider_id.to_string(),
@@ -556,22 +532,6 @@ pub fn get_usage_stats(conn: &Connection, provider_id: &str, model: &str) -> Usa
         requests: 0,
         updated_at: None,
     })
-}
-
-pub fn clear_usage_stats(conn: &Connection, provider_id: &str) -> AppResult<()> {
-    conn.execute(
-        "DELETE FROM usage_stats WHERE provider_id = ?1",
-        [provider_id],
-    )?;
-    Ok(())
-}
-
-pub fn clear_usage_stats_model(conn: &Connection, provider_id: &str, model: &str) -> AppResult<()> {
-    conn.execute(
-        "DELETE FROM usage_stats WHERE provider_id = ?1 AND model = ?2",
-        params![provider_id, model],
-    )?;
-    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -974,24 +934,25 @@ mod tests {
     }
 
     #[test]
-    fn accumulates_and_clears_usage_stats() {
+    fn scopes_cache_usage_to_each_session() {
         let dir = tempfile::tempdir().unwrap();
         let conn = open_db(dir.path()).unwrap();
-        record_usage(&conn, "p1", "m1", 1000, 800, 50).unwrap();
-        record_usage(&conn, "p1", "m1", 2000, 1900, 80).unwrap();
-        let stats = get_usage_stats(&conn, "p1", "m1");
-        assert_eq!(stats.input_tokens, 3000);
-        assert_eq!(stats.cached_tokens, 2700);
-        assert_eq!(stats.output_tokens, 130);
-        assert_eq!(stats.requests, 2);
-        assert!(stats.updated_at.is_some());
-        clear_usage_stats_model(&conn, "p1", "m1").unwrap();
-        let cleared = get_usage_stats(&conn, "p1", "m1");
-        assert_eq!(cleared.requests, 0);
-        assert_eq!(cleared.input_tokens, 0);
-        record_usage(&conn, "p2", "m2", 10, 5, 2).unwrap();
-        clear_usage_stats(&conn, "p2").unwrap();
-        assert_eq!(get_usage_stats(&conn, "p2", "m2").requests, 0);
+        record_run_metric(&conn, "s1", Some("t1"), "p1", "m1", 1000, 100, 80, 10).unwrap();
+        record_run_metric(&conn, "s1", Some("t1"), "p1", "m1", 2000, 200, 180, 20).unwrap();
+        record_run_metric(&conn, "s2", None, "p1", "m1", 5000, 900, 800, 40).unwrap();
+        let first = get_session_usage(&conn, "s1", "p1", "m1");
+        assert_eq!(first.input_tokens, 300);
+        assert_eq!(first.cached_tokens, 260);
+        assert_eq!(first.output_tokens, 30);
+        assert_eq!(first.requests, 2);
+        assert!(first.updated_at.is_some());
+        let second = get_session_usage(&conn, "s2", "p1", "m1");
+        assert_eq!(second.input_tokens, 900);
+        assert_eq!(second.cached_tokens, 800);
+        assert_eq!(second.requests, 1);
+        let empty = get_session_usage(&conn, "s3", "p1", "m1");
+        assert_eq!(empty.requests, 0);
+        assert_eq!(empty.input_tokens, 0);
     }
 
     #[test]

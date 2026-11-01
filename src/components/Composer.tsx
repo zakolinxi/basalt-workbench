@@ -314,14 +314,14 @@ export function Composer() {
   }, [session?.id, providerId, model, mode, messages.length]);
 
   useEffect(() => {
-    if (!providerId || !model.trim()) {
+    if (!session?.id || !providerId || !model.trim()) {
       setUsageStats(null);
       return;
     }
     let cancelled = false;
     const timer = window.setTimeout(() => {
       api
-        .usageStats(providerId, model.trim())
+        .usageStats(session.id, providerId, model.trim())
         .then((stats) => {
           if (!cancelled) setUsageStats(stats);
         })

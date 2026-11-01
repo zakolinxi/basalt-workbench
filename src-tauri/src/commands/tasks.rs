@@ -357,6 +357,7 @@ pub async fn review_task(state: State<'_, AppState>, task_id: String) -> AppResu
         max_tokens: None,
         temperature: None,
         reasoning_effort: None,
+        cache_prompt: false,
     };
     let adapter = chat_adapter_for(state.inner(), &rt, &model)?;
     let client = state.http.clone();

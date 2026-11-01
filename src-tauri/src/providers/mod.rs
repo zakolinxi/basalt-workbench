@@ -81,6 +81,7 @@ pub struct ChatRequest {
     pub max_tokens: Option<u32>,
     pub temperature: Option<f64>,
     pub reasoning_effort: Option<String>,
+    pub cache_prompt: bool,
 }
 
 #[derive(Clone, Debug)]

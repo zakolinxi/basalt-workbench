@@ -25,11 +25,12 @@ async fn probe(
     let adapter = chat_adapter(protocol)?;
     let request = ChatRequest {
         model: model.to_string(),
-        messages: vec![ChatMessage::text("user", "Reply with exactly: OK")],
+        messages: vec![ChatMessage::text("user", "OK")],
         tools: Vec::new(),
-        max_tokens: Some(8),
+        max_tokens: Some(1),
         temperature: Some(0.0),
         reasoning_effort: None,
+        cache_prompt: false,
     };
     let (tx, _rx) = unbounded_channel();
     let token = CancellationToken::new();
