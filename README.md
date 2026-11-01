@@ -21,9 +21,9 @@ GitHub：<https://github.com/zakolinxi/basalt-workbench>
 - **模型接口自动选择**：首次调用后探测同一供应商可用的 Chat / Responses 端点，
   按实测延迟与接口库的缓存/工具偏好选型并持久化；模型卡片可手动重新检测，
   后续聊天、Agent、审查与子代理自动使用选定接口。
-- **缓存用量可见**：输入框状态栏按供应商 + 模型累计输入 tokens 与缓存命中率，
-  统一解析 OpenAI Chat/Responses、Anthropic 与 Gemini 的缓存字段；悬停可查看
-  缓存命中量、输出 tokens 与请求次数。
+- **缓存用量可见**：输入框状态栏按供应商 + 模型累计 tokens 与缓存命中率，
+  统一解析 OpenAI Chat/Responses、Anthropic 与 Gemini 的缓存字段；点击展开
+  「Token 用量」面板，查看缓存命中、未缓存输入、缓存读取与输出。
 - **Agent 编程闭环**：目标 → 计划 → 工具调用 → 审批 → 文件修改 → Diff → 终端测试 →
   失败修复 → 报告。内置联网搜索、网页读取与只读子代理；所有展示都来自真实工具事件，
   不使用伪造进度。工具调用按批次合并为默认折叠的执行摘要行；主 Agent 与子代理
@@ -65,8 +65,8 @@ npm run tauri build
 本机已验证产物（见 `release/`）：
 
 - `release/Basalt.exe` — 免安装 EXE（20.78 MiB）
-- `release/Basalt_0.1.19_x64-setup.exe` — NSIS 安装包（7.64 MiB）
-- `release/Basalt-0.1.19-x64-portable.zip` — 便携压缩包（9.52 MiB）
+- `release/Basalt_0.1.20_x64-setup.exe` — NSIS 安装包（7.64 MiB）
+- `release/Basalt-0.1.20-x64-portable.zip` — 便携压缩包（9.52 MiB）
 - `release/SHA256SUMS.txt` — 校验和
 
 原始构建位置：`src-tauri/target/release/basalt.exe`、

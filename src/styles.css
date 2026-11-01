@@ -2648,11 +2648,14 @@ a {
 .composer-alert.warn {
   cursor: default;
 }
+.composer-cache-wrap {
+  position: relative;
+  flex: none;
+}
 .composer-cache {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  flex: none;
   padding: 2px 7px;
   margin: -2px 0;
   border: 1px solid color-mix(in srgb, var(--ok) 26%, transparent);
@@ -2660,9 +2663,20 @@ a {
   background: color-mix(in srgb, var(--ok) 9%, transparent);
   font-family: var(--font-mono);
   font-size: 10px;
+  line-height: 1.4;
   color: var(--fg-2);
   white-space: nowrap;
-  cursor: default;
+  cursor: pointer;
+  appearance: none;
+}
+.composer-cache:hover,
+.composer-cache.open {
+  border-color: color-mix(in srgb, var(--ok) 48%, transparent);
+  background: color-mix(in srgb, var(--ok) 15%, transparent);
+}
+.composer-cache:focus-visible {
+  outline: 1px solid var(--accent-line);
+  outline-offset: 1px;
 }
 .composer-cache svg {
   flex: none;
@@ -2678,6 +2692,66 @@ a {
   color: var(--fg-1);
 }
 .composer-cache-rate.hot {
+  color: var(--ok);
+  font-weight: 600;
+}
+.composer-cache-popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  z-index: 83;
+  width: 274px;
+  padding: 12px 14px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-1);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
+}
+.composer-cache-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.composer-cache-head-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-0);
+}
+.composer-cache-head-title svg {
+  color: var(--ok);
+}
+.composer-cache-head-total {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fg-0);
+  white-space: nowrap;
+}
+.composer-cache-divider {
+  height: 1px;
+  margin: 10px 0 4px;
+  background: var(--line);
+}
+.composer-cache-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4.5px 0;
+  font-size: 11px;
+  color: var(--fg-2);
+}
+.composer-cache-row .value {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-1);
+  white-space: nowrap;
+}
+.composer-cache-row .value.hot {
   color: var(--ok);
   font-weight: 600;
 }

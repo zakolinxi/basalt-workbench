@@ -57,6 +57,9 @@ Rust 测试覆盖：
 - 缓存统计：本地假服务的 Chat 流返回 `cached_tokens`，首轮显示 `152.3K tok ·
   缓存命中 98.3%`；后台切到 Responses 后第二轮累计为 `457K tok · 98.3%`、
   2 次请求；确认流式 Chat 请求携带 `stream_options.include_usage`。
+- 缓存详情面板：点击缓存条展开 Token 用量，显示总量 `458,720 tok`、缓存命中
+  `98.3%`、未缓存输入 `7,740 tok`、缓存读取 `449,280 tok`、输出 `1,700 tok`；
+  点击外部与 Esc 均可关闭。
 - 配色卡片：玄武 / 森林 / 薄荷 / 蜜蜂 / 羊皮纸，深浅主题下整页背景、表面、强调色、460ms 过渡与持久化。
 - 思考强度选择器 8 档、会话持久化与各协议请求字段。
 - Agent 任务创建、联网搜索、网页读取、只读子代理与时间线输出。
@@ -91,9 +94,9 @@ Rust 测试覆盖：
 | 产物 | 结果 |
 | --- | --- |
 | `release/Basalt.exe` | 构建成功（21,788,160 字节，约 20.78 MiB） |
-| `release/Basalt_0.1.19_x64-setup.exe` | NSIS 安装包构建成功（7.64 MiB） |
-| `release/Basalt-0.1.19-x64-portable.zip` | 便携压缩包构建成功（9.52 MiB） |
-| 发布 EXE 冒烟 | `app_info` 返回 0.1.19，窗口正常关闭，退出码 0 |
+| `release/Basalt_0.1.20_x64-setup.exe` | NSIS 安装包构建成功（7.64 MiB） |
+| `release/Basalt-0.1.20-x64-portable.zip` | 便携压缩包构建成功（9.52 MiB） |
+| 发布 EXE 冒烟 | `app_info` 返回 0.1.20，窗口正常关闭，退出码 0 |
 | 首次启动 | 成功；窗口 “Basalt Workbench”；数据目录正常创建 |
 | 遥测 / 网络 | 启动不联网；仅供应商请求与 Agent 联网工具会访问外部服务 |
 | 静默安装 | `/S /D=<temp>`，退出码 0 |

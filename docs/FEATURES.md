@@ -18,9 +18,9 @@
   点击分支可切换本地分支或输入名称新建分支。
 - 输入框底部上下文占用条显示已用 / 上限与百分比；点击展开系统提示、消息、工具、
   输入与剩余容量明细。
-- 状态栏缓存条按供应商 + 模型累计输入 tokens 与缓存命中率；悬停显示缓存命中量、
-  输出 tokens 与请求次数。OpenAI Chat / Responses、Anthropic、Gemini 的缓存字段
-  统一归一化，流式请求自动补 `include_usage`。
+- 状态栏缓存条按供应商 + 模型累计 tokens 与缓存命中率；点击展开 Token 用量面板：
+  缓存命中率、未缓存输入、缓存读取与输出，标题显示含输出的总量。OpenAI Chat /
+  Responses、Anthropic、Gemini 的缓存字段统一归一化，流式请求自动补 `include_usage`。
 - 中央聊天 + Agent 时间线 + 右侧代码 / 变更 / Diff + 底部终端，面板可调整/折叠。
 - 全局搜索过滤（会话、任务、已加载文件）。
 - 布局尺寸与折叠状态持久化（localStorage）。

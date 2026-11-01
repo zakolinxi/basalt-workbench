@@ -125,6 +125,10 @@ function compactContext(value: number): string {
   return String(value);
 }
 
+function fullTokens(value: number): string {
+  return value.toLocaleString("en-US");
+}
+
 export function Composer() {
   const session = useAppStore(currentSession);
   const project = useAppStore(currentProject);
@@ -180,6 +184,7 @@ export function Composer() {
   const [contextOpen, setContextOpen] = useState(false);
   const [contextLoading, setContextLoading] = useState(false);
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
+  const [cacheOpen, setCacheOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modelPickerRef = useClickOutside<HTMLDivElement>(
     () => setModelPickerOpen(false),
@@ -204,6 +209,10 @@ export function Composer() {
   const contextRef = useClickOutside<HTMLDivElement>(
     () => setContextOpen(false),
     contextOpen,
+  );
+  const cacheRef = useClickOutside<HTMLDivElement>(
+    () => setCacheOpen(false),
+    cacheOpen,
   );
   const provider = chatProviders.find((item) => item.id === providerId) ?? null;
   const modelInfo = provider?.models.find((item) => item.id === model.trim()) ?? null;
@@ -260,6 +269,7 @@ export function Composer() {
     setContextOpen(false);
     setContextUsage(null);
     setUsageStats(null);
+    setCacheOpen(false);
   }, [session?.id]);
 
   useEffect(() => {
@@ -334,6 +344,7 @@ export function Composer() {
       setProjectMenuOpen(false);
       setBranchMenuOpen(false);
       setContextOpen(false);
+      setCacheOpen(false);
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
@@ -610,25 +621,22 @@ export function Composer() {
   ].filter((segment) => segment.value > 0);
   const contextRemaining =
     contextLimit !== null ? Math.max(0, contextLimit - contextTotal) : null;
+  const cacheRead = usageStats
+    ? Math.min(usageStats.cachedTokens, usageStats.inputTokens)
+    : 0;
+  const cacheUncached = usageStats
+    ? Math.max(0, usageStats.inputTokens - cacheRead)
+    : 0;
+  const cacheTotal = usageStats
+    ? usageStats.inputTokens + usageStats.outputTokens
+    : 0;
   const cacheRate =
     usageStats && usageStats.inputTokens > 0
       ? Math.min(
           100,
-          Math.round(
-            (Math.min(usageStats.cachedTokens, usageStats.inputTokens) /
-              usageStats.inputTokens) *
-              1000,
-          ) / 10,
+          Math.round((cacheRead / usageStats.inputTokens) * 1000) / 10,
         )
       : null;
-  const cacheTitle = usageStats
-    ? [
-        `累计输入 ${usageStats.inputTokens.toLocaleString()} tokens`,
-        `缓存命中 ${usageStats.cachedTokens.toLocaleString()} tokens`,
-        `输出 ${usageStats.outputTokens.toLocaleString()} tokens · ${usageStats.requests} 次请求`,
-        "按当前供应商与模型累计",
-      ].join("\n")
-    : "";
 
   return (
     <div
@@ -1067,20 +1075,78 @@ export function Composer() {
               ) : null}
             </div>
             {usageStats && usageStats.requests > 0 ? (
-              <div className="composer-cache" title={cacheTitle}>
-                <Database size={11} />
-                <span className="composer-cache-value">
-                  {compactContext(usageStats.inputTokens)} tok
-                </span>
-                <span className="composer-cache-sep">·</span>
-                <span
-                  className={clsx(
-                    "composer-cache-rate",
-                    cacheRate !== null && cacheRate >= 50 && "hot",
-                  )}
+              <div className="composer-cache-wrap" ref={cacheRef}>
+                <button
+                  type="button"
+                  className={clsx("composer-cache", cacheOpen && "open")}
+                  onClick={() => {
+                    setContextOpen(false);
+                    setCacheOpen((value) => !value);
+                  }}
+                  aria-haspopup="dialog"
+                  aria-expanded={cacheOpen}
+                  title="查看 Token 用量"
                 >
-                  缓存命中 {cacheRate === null ? "—" : `${cacheRate}%`}
-                </span>
+                  <Database size={11} />
+                  <span className="composer-cache-value">
+                    {compactContext(cacheTotal)} tok
+                  </span>
+                  <span className="composer-cache-sep">·</span>
+                  <span
+                    className={clsx(
+                      "composer-cache-rate",
+                      cacheRate !== null && cacheRate >= 50 && "hot",
+                    )}
+                  >
+                    缓存命中 {cacheRate === null ? "—" : `${cacheRate}%`}
+                  </span>
+                </button>
+                {cacheOpen ? (
+                  <div
+                    className="composer-cache-popover"
+                    role="dialog"
+                    aria-label="Token 用量"
+                  >
+                    <div className="composer-cache-head">
+                      <span className="composer-cache-head-title">
+                        <Database size={12} /> Token 用量
+                      </span>
+                      <span className="composer-cache-head-total">
+                        {fullTokens(cacheTotal)} tok
+                      </span>
+                    </div>
+                    <div className="composer-cache-divider" />
+                    <div className="composer-cache-row">
+                      <span className="label">缓存命中</span>
+                      <span
+                        className={clsx(
+                          "value",
+                          cacheRate !== null && "hot",
+                        )}
+                      >
+                        {cacheRate === null ? "—" : `${cacheRate}%`}
+                      </span>
+                    </div>
+                    <div className="composer-cache-row">
+                      <span className="label">未缓存输入</span>
+                      <span className="value">
+                        {fullTokens(cacheUncached)} tok
+                      </span>
+                    </div>
+                    <div className="composer-cache-row">
+                      <span className="label">缓存读取</span>
+                      <span className="value">
+                        {fullTokens(cacheRead)} tok
+                      </span>
+                    </div>
+                    <div className="composer-cache-row">
+                      <span className="label">输出</span>
+                      <span className="value">
+                        {fullTokens(usageStats.outputTokens)} tok
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : null}
             {session ? (
@@ -1088,7 +1154,10 @@ export function Composer() {
                 <button
                   type="button"
                   className="composer-context-trigger"
-                  onClick={() => setContextOpen((value) => !value)}
+                  onClick={() => {
+                    setCacheOpen(false);
+                    setContextOpen((value) => !value);
+                  }}
                   aria-expanded={contextOpen}
                   title="查看上下文估算"
                 >
