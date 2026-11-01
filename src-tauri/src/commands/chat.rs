@@ -830,7 +830,7 @@ pub fn context_usage(
             .as_deref()
             .map(Path::new)
             .unwrap_or_else(|| Path::new(""));
-        crate::agent::prompt::system_prompt(root)
+        crate::agent::prompt::system_prompt(app, root)
     } else {
         chat_system_prompt(app, &session)
     };
@@ -850,7 +850,7 @@ pub fn context_usage(
         .sum::<u64>();
 
     let tools = if mode == "agent" {
-        serde_json::to_string(&crate::agent::tools::schemas())
+        serde_json::to_string(&crate::agent::tools::schemas_for(app))
             .map(|raw| estimate_tokens(&raw))
             .unwrap_or(0)
     } else {

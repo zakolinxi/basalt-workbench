@@ -23,6 +23,11 @@ const ImageStudio = lazy(() =>
     default: module.ImageStudio,
   })),
 );
+const ExtensionsView = lazy(() =>
+  import("./views/ExtensionsView").then((module) => ({
+    default: module.ExtensionsView,
+  })),
+);
 const SettingsView = lazy(() =>
   import("./views/SettingsView").then((module) => ({
     default: module.SettingsView,
@@ -204,6 +209,7 @@ export default function App() {
             >
               {view === "providers" ? <ProvidersView /> : null}
               {view === "images" ? <ImageStudio /> : null}
+              {view === "extensions" ? <ExtensionsView /> : null}
               {view === "settings" ? <SettingsView /> : null}
             </Suspense>
           ) : null}

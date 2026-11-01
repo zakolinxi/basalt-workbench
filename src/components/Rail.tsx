@@ -1,4 +1,4 @@
-import { LayoutGrid, Server, Image as ImageIcon, Settings, Sun, Moon, Laptop } from "lucide-react";
+import { LayoutGrid, Server, Image as ImageIcon, Puzzle, Settings, Sun, Moon, Laptop } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
 import { useAppStore } from "../lib/store";
@@ -10,6 +10,7 @@ const GITHUB_URL = "https://github.com/zakolinxi/basalt-workbench";
 const navItems = [
   { view: "workbench" as const, label: "工作台", icon: LayoutGrid },
   { view: "providers" as const, label: "供应商", icon: Server },
+  { view: "extensions" as const, label: "扩展", icon: Puzzle },
   { view: "images" as const, label: "图像工作区", icon: ImageIcon },
 ];
 

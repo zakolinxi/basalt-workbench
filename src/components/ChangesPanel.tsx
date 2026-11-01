@@ -7,9 +7,16 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { useAppStore } from "../lib/store";
-import { errorMessage } from "../lib/api";
+import { api, errorMessage } from "../lib/api";
 import type { Change } from "../lib/types";
-import { Badge, Button, ConfirmDialog, IconButton, Modal } from "./ui";
+import {
+  Badge,
+  Button,
+  ConfirmDialog,
+  IconButton,
+  Modal,
+  Textarea,
+} from "./ui";
 
 function changeTone(status: string): "ok" | "warn" | "err" | undefined {
   if (status === "accepted") return "ok";
@@ -34,6 +41,13 @@ export function ChangesPanel() {
   const resolveChange = useAppStore((state) => state.resolveChange);
   const refreshChanges = useAppStore((state) => state.refreshChanges);
   const refreshGit = useAppStore((state) => state.refreshGit);
+  const notify = useAppStore((state) => state.notify);
+  const projectId = useAppStore((state) => state.currentProjectId);
+  const [commitOpen, setCommitOpen] = useState(false);
+  const [commitMessage, setCommitMessage] = useState("");
+  const [commitBusy, setCommitBusy] = useState(false);
+  const [restoreTarget, setRestoreTarget] = useState<string | null>(null);
+  const [restoreBusy, setRestoreBusy] = useState(false);
   const [revertTarget, setRevertTarget] = useState<Change | null>(null);
   const [conflict, setConflict] = useState<{
     change: Change;
@@ -61,6 +75,42 @@ export function ChangesPanel() {
       }
     } finally {
       setBusy(null);
+    }
+  };
+
+  const conflicts =
+    git?.entries.filter((entry) => entry.status === "conflict").length ?? 0;
+
+  const commitGit = async () => {
+    if (!projectId || !commitMessage.trim() || commitBusy) return;
+    setCommitBusy(true);
+    try {
+      const hash = await api.gitCommit(projectId, commitMessage.trim(), []);
+      setCommitOpen(false);
+      setCommitMessage("");
+      await refreshGit();
+      await refreshChanges();
+      notify("success", "已创建 Git 提交", hash);
+    } catch (error) {
+      notify("error", "提交失败", errorMessage(error));
+    } finally {
+      setCommitBusy(false);
+    }
+  };
+
+  const restoreGit = async (path: string) => {
+    if (!projectId || restoreBusy) return;
+    setRestoreBusy(true);
+    try {
+      await api.gitRestoreFile(projectId, path);
+      setRestoreTarget(null);
+      await refreshGit();
+      await refreshChanges();
+      notify("success", "已还原到 HEAD", path);
+    } catch (error) {
+      notify("error", "还原失败", errorMessage(error));
+    } finally {
+      setRestoreBusy(false);
     }
   };
 
@@ -180,10 +230,25 @@ export function ChangesPanel() {
           </span>
         ) : null}
         <span className="count">{git?.entries.length ?? 0} FILES</span>
+        {git?.isRepo && git.entries.length > 0 ? (
+          <button
+            type="button"
+            className="rail-more rail-review"
+            onClick={() => setCommitOpen(true)}
+          >
+            <Check size={9} /> 提交
+          </button>
+        ) : null}
         <IconButton label="刷新 Git 状态" size="sm" onClick={() => void refreshGit()}>
           <RefreshCw size={11} />
         </IconButton>
       </div>
+      {conflicts > 0 ? (
+        <div className="warning-box" style={{ margin: "0 0 6px" }}>
+          Git 检测到 {conflicts} 个未解决的合并冲突。请先在编辑器中解决冲突并标记，
+          然后再提交。冲突文件不会被自动覆盖。
+        </div>
+      ) : null}
       {!git ? (
         <div className="git-note">正在读取 Git 状态…</div>
       ) : !git.isRepo ? (
@@ -239,6 +304,20 @@ export function ChangesPanel() {
               >
                 <FileCode size={11} />
               </IconButton>
+              {!entry.untracked ? (
+                <IconButton
+                  label="还原到 HEAD"
+                  size="sm"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setRestoreTarget(
+                      entry.path.split(" -> ").pop() ?? entry.path,
+                    );
+                  }}
+                >
+                  <RotateCcw size={11} />
+                </IconButton>
+              ) : null}
             </span>
           </div>
         ))
@@ -305,6 +384,63 @@ export function ChangesPanel() {
           建议先在 Diff 面板中审查当前内容，确认没有需要保留的用户修改。
         </div>
       </Modal>
+
+      <Modal
+        open={commitOpen}
+        onClose={() => setCommitOpen(false)}
+        kicker="GIT COMMIT"
+        title="提交当前分支的变更"
+        footer={
+          <>
+            <Button onClick={() => setCommitOpen(false)}>取消</Button>
+            <Button
+              variant="primary"
+              disabled={commitBusy || !commitMessage.trim()}
+              onClick={() => void commitGit()}
+            >
+              <Check size={12} /> 提交全部变更
+            </Button>
+          </>
+        }
+      >
+        <div className="ext-form">
+          <div className="field-hint">
+            将暂存并提交当前工作区的全部变更（包括未跟踪文件）。提交只发生在本地，
+            不会自动推送到远程仓库。
+          </div>
+          <Textarea
+            rows={5}
+            value={commitMessage}
+            onChange={(event) => setCommitMessage(event.target.value)}
+            placeholder="描述这次提交的原因和内容…"
+            autoFocus
+          />
+          <div className="ext-card-meta">
+            <Badge>{git?.entries.length ?? 0} FILES</Badge>
+            {conflicts > 0 ? (
+              <Badge tone="err">{conflicts} CONFLICTS</Badge>
+            ) : null}
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={restoreTarget !== null}
+        title="还原到 HEAD"
+        message={
+          <>
+            将把 <strong>{restoreTarget}</strong> 的已暂存和工作区内容都还原为 HEAD
+            版本。该文件当前未提交的修改会丢失。
+          </>
+        }
+        detail="未跟踪文件不会被删除；如需清理请手动删除。"
+        confirmLabel={restoreBusy ? "还原中…" : "还原文件"}
+        danger
+        onCancel={() => setRestoreTarget(null)}
+        onConfirm={() => {
+          if (restoreTarget) void restoreGit(restoreTarget);
+        }}
+      />
     </div>
   );
 }

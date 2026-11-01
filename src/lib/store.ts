@@ -42,7 +42,7 @@ export interface LayoutState {
   terminalCollapsed: boolean;
 }
 
-type View = "workbench" | "providers" | "images" | "settings";
+type View = "workbench" | "providers" | "images" | "extensions" | "settings";
 
 interface ActiveChat {
   requestId: string;
@@ -189,7 +189,15 @@ const defaultSettings: Settings = {
   chatFontSize: 14,
   showHiddenFiles: false,
   userAgent:
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.28",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.2.0",
+  recovery: {
+    maxRetries: 2,
+    backoffMs: 800,
+    fallbackProviderId: "",
+    fallbackModel: "",
+  },
+  autoReview: false,
+  agentBranchIsolation: false,
 };
 
 function upsertMessage(messages: Message[], message: Message): Message[] {

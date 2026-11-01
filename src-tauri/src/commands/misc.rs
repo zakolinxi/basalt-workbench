@@ -72,6 +72,8 @@ pub fn settings_set(state: State<'_, AppState>, mut settings: Settings) -> AppRe
     }
     settings.editor_font_size = settings.editor_font_size.clamp(10, 24);
     settings.chat_font_size = settings.chat_font_size.clamp(11, 22);
+    settings.recovery.max_retries = settings.recovery.max_retries.clamp(0, 5);
+    settings.recovery.backoff_ms = settings.recovery.backoff_ms.clamp(100, 10_000);
     let conn = state.db();
     db::save_settings(&conn, &settings)?;
     Ok(settings)

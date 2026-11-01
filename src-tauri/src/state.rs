@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
@@ -10,6 +10,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::db;
 use crate::error::{AppError, AppResult};
+use crate::mcp::SharedSession;
 use crate::terminal::TerminalSession;
 
 pub struct AppState {
@@ -21,7 +22,10 @@ pub struct AppState {
     pub task_cancels: Mutex<HashMap<String, CancellationToken>>,
     pub approvals: Mutex<HashMap<String, oneshot::Sender<bool>>>,
     pub terminals: Mutex<HashMap<String, TerminalSession>>,
-    pub agent_active: Mutex<bool>,
+    /// Project ids with a running agent. Each project gets its own queue so
+    /// multiple workspaces can run in parallel without touching the same files.
+    pub agent_active: Mutex<HashSet<String>>,
+    pub mcp: tokio::sync::Mutex<HashMap<String, SharedSession>>,
 }
 
 impl AppState {
@@ -30,7 +34,14 @@ impl AppState {
             .path()
             .app_data_dir()
             .map_err(|e| AppError::msg(format!("无法获取应用数据目录：{e}")))?;
-        for sub in ["logs", "images", "attachments", "snapshots"] {
+        for sub in [
+            "logs",
+            "images",
+            "attachments",
+            "snapshots",
+            "skills",
+            "plugins",
+        ] {
             std::fs::create_dir_all(data_dir.join(sub))?;
         }
         let conn = db::open_db(&data_dir)?;
@@ -48,7 +59,8 @@ impl AppState {
             task_cancels: Mutex::new(HashMap::new()),
             approvals: Mutex::new(HashMap::new()),
             terminals: Mutex::new(HashMap::new()),
-            agent_active: Mutex::new(false),
+            agent_active: Mutex::new(HashSet::new()),
+            mcp: tokio::sync::Mutex::new(HashMap::new()),
         })
     }
 

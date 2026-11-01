@@ -14,7 +14,7 @@
 | 前端单元测试 | `npx vitest run` | **23 passed**（Diff / 权限 / Base URL / 工具格式化 / i18n） |
 | 前端生产构建 | `npm run build` | 通过，生成 `dist/` |
 | Rust 编译检查 | `cargo check` | 通过 |
-| Rust 测试 | `cargo test` | **51 passed, 0 failed** |
+| Rust 测试 | `cargo test` | **62 passed, 0 failed** |
 
 前端测试覆盖 Diff、权限、Base URL 归一化、工具名称/目标格式化，
 以及 i18n 精确匹配、数字插值、空翻译与回退。
@@ -40,7 +40,16 @@ Rust 测试覆盖：
 - `git`：真实临时仓库的 untracked 状态、HEAD ↔ 工作区 Diff、分支列表、切换与新建。
 - `agent/tools`：真实 PowerShell 命令执行、stdout/stderr 捕获、退出码、
   取消后进程终止。
-- `error` / `secrets`：错误友好化、令牌脱敏、Keyring 服务名。
+- `skills`：SKILL.md frontmatter（折叠/字面量/引号）、无 frontmatter、Skill 文件读取
+  与目录越界拒绝。
+- `mcp`：工具名命名空间与 64 字符限制、SSE JSON 帧解析、stdio/HTTP 输入校验。
+- `plugins`：plugin.json 安装路径不得逃逸插件根目录。
+- `agent/round`：自动重试次数上限与指数退避增长。
+- `error`：429/5xx 判定为可重试，401/404 不重试；错误友好化、令牌脱敏、Keyring 服务名。
+- `policy`：read_skill、spawn_subagent、spawn_agents 均允许，写入/命令仍按审批策略。
+- `git`：真实临时仓库的 untracked 状态、HEAD ↔ 工作区 Diff、分支列表、切换与新建、
+  按路径提交、还原已跟踪文件、拒绝未跟踪文件与 `..` 路径。
+- `secrets`：Keyring 服务名稳定。
 
 ## 2. 桌面端到端验证
 
@@ -90,6 +99,25 @@ Rust 测试覆盖：
   `Tools run: 3, 1 failed`、`ツール実行 3 回、1 件失敗`、
   `도구 실행 3회, 1회 실패`。English 模式下设置、供应商、图像主视图无残留中文 UI；
   用户内容（会话标题、模型输出、计划文本）保持原文。
+
+### 扩展、MCP 与故障恢复（2026-11-01）
+
+- 扩展页四个标签均可打开：Skills、MCP、插件包、工具注册表；界面、权限提示与统计数字正常。
+- 使用临时 Skill 文件夹验证安装、列表、启用状态、删除与工具注册表联动；
+  安装后 `read_skill` 自动出现在注册表，系统提示增加 Skill 索引。
+- 使用本地 Node stdio Mock MCP 验证完整握手：`initialize` →
+  `notifications/initialized` → `tools/list`，服务器状态变为 READY，
+  `add` / `echo` 两个工具及只读标注正确显示。
+- 通过管理页测试按钮验证 `tools/call`：参数 `{"a":2,"b":40}` 返回 `42`，
+  结果摘要为 `MCP 完成：demo-mcp / add`；进程在刷新与编辑配置后可复用/重建。
+- 使用 `plugin.json` 插件包验证一个 Skill + 一个 MCP 服务器同时安装；插件内相对脚本路径
+  自动锚定到安装目录，安装后自动刷新工具；注册表从 17 增至 19 个工具。
+- 设置页验证自动重试（0–5 次）、退避时间、降级供应商/模型、独立自动审查与 Git 分支隔离；
+  Agent 执行路由已接入 Composer 的 Agent 模式。
+- 英文界面下扩展页标题、说明、服务器表单、注册表与工具测试均完成翻译；用户安装的
+  Skill 名称与描述作为内容保持原文。
+- 测试过程中发现并修复 `task_get` 读取子代理列表时再次获取 SQLite 锁造成的自锁，
+  该问题会导致全部 Tauri IPC 无响应。
 - 配色卡片：玄武 / 森林 / 薄荷 / 蜜蜂 / 羊皮纸，深浅主题下整页背景、表面、强调色、460ms 过渡与持久化。
 - 思考强度选择器 8 档、会话持久化与各协议请求字段。
 - Agent 任务创建、联网搜索、网页读取、只读子代理与时间线输出。

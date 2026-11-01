@@ -52,8 +52,22 @@ Basalt（玄武）是一个把 **多模型对话、审批门控的编程 Agent�
 - 工具批次内联在对话轮次中，默认折叠；测试通过/失败以 PASS / FAIL 行保留。
 - 回复完成后在输入框上方显示模型、耗时与输出 tok/s；中断/失败/取消可继续。
 - 右侧任务栏：TODO 固定在顶部 15% 高度，只显示前三项并可展开全部；代码变更紧随其后。
+- 子代理任务树：并行运行的 researcher / planner / reviewer / verifier 独立显示，
+  可查看状态、轮次、工具次数与完整报告。
 - 思考强度 8 档（off / minimal / low / medium / high / xhigh / max / ultra），按协议映射。
 - 缓存命中、未缓存输入、缓存读取、输出与运行的上下文占用随手可见。
+
+### 协作、恢复与扩展
+
+- 多 Agent 协作：主 Agent 可一次并行调度最多 6 个只读专业子代理，再汇总结果完成修改。
+- 规划 / 执行 / 审查模型可分别路由；reviewer 与自动审查使用独立代码审查模型。
+- 故障恢复：瞬时网络、429 与 5xx 自动指数退避重试；主供应商失败时可切换到已配置的降级供应商。
+- Skills：导入包含 `SKILL.md` 的工作流包，Agent 按任务匹配读取说明、脚本与模板后执行。
+- MCP：支持 stdio 与 Streamable HTTP，自动发现工具、逐次审批、查看 schema 并直接测试调用。
+- 插件包：一个 `plugin.json` 同时安装多个 Skill 与 MCP 服务器，卸载时一并清理。
+- 统一工具注册表：集中显示内置工具、Skill 加载器与所有已启用 MCP 工具及其权限。
+- Git 工作流：任务分支隔离、工作区提交、单文件还原到 HEAD、合并冲突提示。
+- 多项目并行：每个项目拥有独立 Agent 队列，不同工作区可同时运行，同一项目保持串行安全。
 
 ### 多模型与自动接口
 
@@ -166,7 +180,7 @@ docs/                   功能、设计、供应商、测试与截图
 
 ```bash
 npm test -- --run                 # 23 frontend tests
-cargo test --manifest-path src-tauri/Cargo.toml   # 51 Rust tests
+cargo test --manifest-path src-tauri/Cargo.toml   # 62 Rust tests
 ```
 
 当前验证记录见 [docs/TESTING.md](docs/TESTING.md)。

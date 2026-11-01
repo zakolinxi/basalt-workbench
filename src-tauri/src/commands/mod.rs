@@ -1,5 +1,6 @@
 pub mod changes;
 pub mod chat;
+pub mod extensions;
 pub mod files;
 pub mod images;
 pub mod misc;

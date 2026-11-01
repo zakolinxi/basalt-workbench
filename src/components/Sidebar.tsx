@@ -49,6 +49,20 @@ export function Sidebar({ style }: { style?: CSSProperties }) {
     return latest;
   }, [tasks]);
 
+  const agentActivity = useMemo(() => {
+    const map = new Map<string, { running: number; queued: number }>();
+    for (const task of tasks) {
+      if (!["running", "waitingApproval", "queued"].includes(task.status)) {
+        continue;
+      }
+      const current = map.get(task.projectId) ?? { running: 0, queued: 0 };
+      if (task.status === "queued") current.queued += 1;
+      else current.running += 1;
+      map.set(task.projectId, current);
+    }
+    return map;
+  }, [tasks]);
+
   const projectSessions = useMemo(
     () =>
       sessions.filter(
@@ -74,6 +88,7 @@ export function Sidebar({ style }: { style?: CSSProperties }) {
           ) : null}
           {projects.map((item) => {
             const latest = latestTaskByProject.get(item.id);
+            const activity = agentActivity.get(item.id);
             const active = item.id === project?.id;
             return (
               <button
@@ -89,6 +104,21 @@ export function Sidebar({ style }: { style?: CSSProperties }) {
                     {latest?.title ?? "暂无任务"}
                   </span>
                 </span>
+                {activity && (activity.running > 0 || activity.queued > 0) ? (
+                  <span
+                    className={clsx(
+                      "workspace-agent-count",
+                      activity.running > 0 ? "running" : "queued",
+                    )}
+                    title={
+                      activity.running > 0
+                        ? `${activity.running} 个 Agent 正在运行`
+                        : `${activity.queued} 个任务排队中`
+                    }
+                  >
+                    {activity.running > 0 ? activity.running : activity.queued}
+                  </span>
+                ) : null}
                 {active ? (
                   <span
                     className="workspace-grip"

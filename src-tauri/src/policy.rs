@@ -157,9 +157,8 @@ pub fn dangerous_command_reason(command: &str, root: &Path) -> Option<String> {
 pub fn evaluate(tool: &str, args: &Value, root: &Path, settings: &Settings) -> PolicyDecision {
     match tool {
         "update_plan" | "list_files" | "search_files" | "read_file" | "git_status"
-        | "git_diff" | "web_search" | "fetch_url" | "spawn_subagent" => {
-            PolicyDecision::Allow
-        }
+        | "git_diff" | "web_search" | "fetch_url" | "spawn_subagent" | "spawn_agents"
+        | "read_skill" => PolicyDecision::Allow,
         "write_file" | "apply_patch" => {
             let Some(path) = args.get("path").and_then(|v| v.as_str()) else {
                 return PolicyDecision::Deny("缺少 path 参数".into());
@@ -227,6 +226,15 @@ mod tests {
         let (_dir, root) = root();
         let decision = evaluate("read_file", &json!({"path": "src/main.rs"}), &root, &Settings::default());
         assert!(matches!(decision, PolicyDecision::Allow));
+    }
+
+    #[test]
+    fn skill_and_parallel_agent_tools_are_allowed() {
+        let (_dir, root) = root();
+        for tool in ["read_skill", "spawn_subagent", "spawn_agents"] {
+            let decision = evaluate(tool, &json!({}), &root, &Settings::default());
+            assert!(matches!(decision, PolicyDecision::Allow), "{tool}");
+        }
     }
 
     #[test]

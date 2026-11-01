@@ -183,6 +183,70 @@ CREATE TABLE IF NOT EXISTS image_generations (
   session_id TEXT,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS skills (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  source TEXT NOT NULL DEFAULT 'user',
+  path TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  plugin_id TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_skills_enabled ON skills(enabled, name);
+CREATE TABLE IF NOT EXISTS mcp_servers (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  transport TEXT NOT NULL DEFAULT 'stdio',
+  command TEXT NOT NULL DEFAULT '',
+  args_json TEXT NOT NULL DEFAULT '[]',
+  env_json TEXT NOT NULL DEFAULT '{}',
+  url TEXT NOT NULL DEFAULT '',
+  headers_json TEXT NOT NULL DEFAULT '{}',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  auto_approve INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'idle',
+  last_error TEXT,
+  last_refreshed_at TEXT,
+  plugin_id TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS mcp_tools (
+  server_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  input_schema TEXT NOT NULL DEFAULT '{}',
+  readonly INTEGER NOT NULL DEFAULT 0,
+  refreshed_at TEXT NOT NULL,
+  PRIMARY KEY(server_id, name)
+);
+CREATE INDEX IF NOT EXISTS idx_mcp_tools_server ON mcp_tools(server_id, name);
+CREATE TABLE IF NOT EXISTS subagent_runs (
+  id TEXT PRIMARY KEY,
+  task_id TEXT NOT NULL,
+  role TEXT NOT NULL,
+  task TEXT NOT NULL,
+  provider_id TEXT NOT NULL,
+  model TEXT NOT NULL,
+  status TEXT NOT NULL,
+  report TEXT,
+  error TEXT,
+  rounds INTEGER NOT NULL DEFAULT 0,
+  tool_calls INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_subagent_runs_task ON subagent_runs(task_id, created_at);
+CREATE TABLE IF NOT EXISTS plugins (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  version TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  path TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_projects_opened ON projects(last_opened_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sessions_updated ON sessions(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sessions_project_updated ON sessions(project_id, updated_at DESC);

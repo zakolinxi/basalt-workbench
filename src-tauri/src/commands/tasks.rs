@@ -2,24 +2,17 @@ use rusqlite::params;
 use serde::Deserialize;
 use serde_json::json;
 use tauri::State;
-use tokio::sync::mpsc::unbounded_channel;
-use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use crate::changes::list_changes;
 use crate::db::{
-    get_project, get_provider_row, get_task, insert_message, load_settings, now, row_to_session,
-    row_to_task, row_to_tool_call,
+    get_project, get_provider_row, get_task, insert_message, now, row_to_session, row_to_task,
+    row_to_tool_call,
 };
 use crate::error::{AppError, AppResult};
 use crate::events::{finish_task, push_task_event};
-use crate::files::truncate_chars;
 use crate::models::{
-    Task, TaskDetail, TaskEvent, CAP_UNSUPPORTED, CAP_VERIFIED, TASK_CANCELLED, TASK_COMPLETED,
-    TASK_QUEUED, TASK_RUNNING, TASK_WAITING,
-};
-use crate::providers::{
-    chat_adapter_for, load_chat_runtime, mark_capabilities, ChatMessage, ChatRequest, ProviderEvent,
+    Task, TaskDetail, TaskEvent, CAP_UNSUPPORTED, TASK_CANCELLED, TASK_COMPLETED, TASK_QUEUED,
+    TASK_RUNNING, TASK_WAITING,
 };
 use crate::state::AppState;
 
@@ -192,34 +185,39 @@ pub fn task_list(state: State<'_, AppState>) -> AppResult<Vec<Task>> {
 
 #[tauri::command]
 pub fn task_get(state: State<'_, AppState>, task_id: String) -> AppResult<TaskDetail> {
-    let conn = state.db();
-    let task = get_task(&conn, &task_id)?;
-    let mut events_stmt = conn.prepare(
-        "SELECT id, task_id, event_type, payload_json, created_at FROM task_events WHERE task_id = ?1 ORDER BY id ASC",
-    )?;
-    let events = events_stmt
-        .query_map([&task_id], |row| {
-            let payload_raw: String = row.get(3)?;
-            Ok(TaskEvent {
-                id: row.get(0)?,
-                task_id: row.get(1)?,
-                event_type: row.get(2)?,
-                payload: serde_json::from_str(&payload_raw).unwrap_or(json!({})),
-                created_at: row.get(4)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-    let mut calls_stmt =
-        conn.prepare("SELECT * FROM tool_calls WHERE task_id = ?1 ORDER BY created_at ASC")?;
-    let tool_calls = calls_stmt
-        .query_map([&task_id], row_to_tool_call)?
-        .collect::<Result<Vec<_>, _>>()?;
-    let changes = crate::changes::list_changes_conn(&conn, Some(&task_id), None)?;
+    let (task, events, tool_calls, changes) = {
+        let conn = state.db();
+        let task = get_task(&conn, &task_id)?;
+        let mut events_stmt = conn.prepare(
+            "SELECT id, task_id, event_type, payload_json, created_at FROM task_events WHERE task_id = ?1 ORDER BY id ASC",
+        )?;
+        let events = events_stmt
+            .query_map([&task_id], |row| {
+                let payload_raw: String = row.get(3)?;
+                Ok(TaskEvent {
+                    id: row.get(0)?,
+                    task_id: row.get(1)?,
+                    event_type: row.get(2)?,
+                    payload: serde_json::from_str(&payload_raw).unwrap_or(json!({})),
+                    created_at: row.get(4)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut calls_stmt =
+            conn.prepare("SELECT * FROM tool_calls WHERE task_id = ?1 ORDER BY created_at ASC")?;
+        let tool_calls = calls_stmt
+            .query_map([&task_id], row_to_tool_call)?
+            .collect::<Result<Vec<_>, _>>()?;
+        let changes = crate::changes::list_changes_conn(&conn, Some(&task_id), None)?;
+        (task, events, tool_calls, changes)
+    };
+    let subagents = crate::agent::subagent::list_runs(&state, &task_id)?;
     Ok(TaskDetail {
         task,
         events,
         tool_calls,
         changes,
+        subagents,
     })
 }
 
@@ -288,103 +286,13 @@ pub fn task_cancel(state: State<'_, AppState>, task_id: String) -> AppResult<boo
 
 #[tauri::command]
 pub async fn review_task(state: State<'_, AppState>, task_id: String) -> AppResult<String> {
-    let (task, settings) = {
+    let task = {
         let conn = state.db();
-        (get_task(&conn, &task_id)?, load_settings(&conn))
+        get_task(&conn, &task_id)?
     };
-    let route = if settings.routing.review.is_set() {
-        settings.routing.review.clone()
-    } else if settings.routing.agent_execute.is_set() {
-        settings.routing.agent_execute.clone()
-    } else {
-        settings.routing.chat.clone()
-    };
-    if !route.is_set() {
-        return Err(AppError::msg(
-            "没有可用的审查模型。请在设置中配置代码审查路由或聊天路由。",
-        ));
-    }
-    let rt = load_chat_runtime(&state, &route.provider_id)?;
-    let model = if route.model.trim().is_empty() {
-        rt.provider
-            .default_chat_model
-            .clone()
-            .ok_or_else(|| AppError::msg("审查路由未指定模型"))?
-    } else {
-        route.model.clone()
-    };
-    let changes = list_changes(&state, Some(&task_id), None)?;
-    if changes.is_empty() {
-        return Err(AppError::msg("该任务还没有文件变更可供审查"));
-    }
-    let mut material = String::new();
-    for change in changes.iter().take(20) {
-        let diff = crate::changes::change_diff(&state, &change.id)?;
-        if diff.binary {
-            continue;
-        }
-        let (old_text, _) = truncate_chars(&diff.old_text, 12_000);
-        let (new_text, _) = truncate_chars(&diff.new_text, 12_000);
-        material.push_str(&format!(
-            "\n### {}\n状态：{}\n--- 变更前 ---\n{}\n--- 当前 ---\n{}\n",
-            change.path, change.status, old_text, new_text
-        ));
-        if material.len() > 60_000 {
-            break;
-        }
-    }
-    if material.trim().is_empty() {
-        return Err(AppError::msg("变更内容为空或全部为二进制文件"));
-    }
-    let request = ChatRequest {
-        model: model.clone(),
-        messages: vec![
-            ChatMessage::text(
-                "system",
-                "你是 Basalt 的代码审查模型。请只基于给出的真实文件变更进行审查，\
-                 不要假设你执行过任何命令。指出正确性、安全、边界条件和测试缺口，\
-                 按严重程度排序，给出可操作的修改建议。使用中文和 Markdown。",
-            ),
-            ChatMessage::text(
-                "user",
-                format!(
-                    "任务目标：{}\n\n需要审查的文件变更：\n{}\n\n请输出：1) 主要风险 2) 具体建议 3) 需要补充的验证。",
-                    task.goal, material
-                ),
-            ),
-        ],
-        tools: Vec::new(),
-        max_tokens: None,
-        temperature: None,
-        reasoning_effort: None,
-        cache_prompt: false,
-    };
-    let adapter = chat_adapter_for(state.inner(), &rt, &model)?;
-    let client = state.http.clone();
-    let token = CancellationToken::new();
-    let (tx, mut rx) = unbounded_channel::<ProviderEvent>();
-    let handle = tauri::async_runtime::spawn(async move {
-        adapter.chat(&client, &rt, &request, &tx, &token).await
-    });
-    let mut text = String::new();
-    while let Some(event) = rx.recv().await {
-        if let ProviderEvent::TextDelta(delta) = event {
-            text.push_str(&delta);
-        }
-    }
-    handle
+    crate::agent::review::generate(&state, &task)
         .await
-        .map_err(|e| AppError::msg(format!("审查任务异常：{e}")))??;
-    if text.trim().is_empty() {
-        return Err(AppError::msg("审查模型没有返回文本内容"));
-    }
-    let _ = mark_capabilities(
-        &state,
-        &route.provider_id,
-        &model,
-        &[("chat", CAP_VERIFIED), ("stream", CAP_VERIFIED)],
-    );
-    Ok(text)
+        .map(|(_, report)| report)
 }
 
 #[tauri::command]
@@ -404,6 +312,7 @@ pub fn task_delete(state: State<'_, AppState>, task_id: String) -> AppResult<()>
     }
     conn.execute("DELETE FROM task_events WHERE task_id = ?1", [&task_id])?;
     conn.execute("DELETE FROM tool_calls WHERE task_id = ?1", [&task_id])?;
+    conn.execute("DELETE FROM subagent_runs WHERE task_id = ?1", [&task_id])?;
     conn.execute("DELETE FROM changes WHERE task_id = ?1", [&task_id])?;
     crate::db::clear_run_metrics_task(&conn, &task_id)?;
     conn.execute("UPDATE messages SET task_id = NULL WHERE task_id = ?1", [&task_id])?;

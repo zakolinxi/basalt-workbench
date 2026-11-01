@@ -1,16 +1,17 @@
 pub mod prompt;
+pub mod review;
+pub mod round;
 pub mod subagent;
 pub mod tools;
 pub mod web;
 
-use std::collections::BTreeMap;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
 use rusqlite::params;
 use serde_json::{json, Value};
 use tauri::Manager;
-use tokio::sync::{mpsc::unbounded_channel, oneshot};
+use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -26,17 +27,9 @@ use crate::models::{
 };
 use crate::policy::{evaluate, PolicyDecision};
 use crate::providers::{
-    capabilities_for, chat_adapter_for, load_chat_runtime, ChatMessage, ChatRequest, ProviderEvent,
-    ProviderToolCall, UsageTotals,
+    capabilities_for, load_chat_runtime, ChatMessage, ChatRequest, ProviderToolCall,
 };
 use crate::state::AppState;
-
-#[derive(Default)]
-struct AccCall {
-    id: Option<String>,
-    name: Option<String>,
-    args: String,
-}
 
 /// Tool payloads are fed back to the model on every following round. Cap the
 /// total character budget while keeping the JSON shape valid.
@@ -87,15 +80,21 @@ pub fn enqueue(app: tauri::AppHandle, task_id: String) {
 }
 
 fn schedule_or_queue(state: &AppState, task_id: &str) {
+    let project_id = {
+        let conn = state.db();
+        get_task(&conn, task_id)
+            .map(|task| task.project_id)
+            .unwrap_or_default()
+    };
     let active = {
         let mut guard = state
             .agent_active
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if *guard {
+        if guard.contains(&project_id) {
             true
         } else {
-            *guard = true;
+            guard.insert(project_id.clone());
             false
         }
     };
@@ -105,11 +104,11 @@ fn schedule_or_queue(state: &AppState, task_id: &str) {
     }
     push_task_event(state, task_id, "TaskQueued", json!({"taskId": task_id}));
     if !active {
-        launch(state, task_id);
+        launch(state, task_id, project_id);
     }
 }
 
-fn launch(state: &AppState, task_id: &str) {
+fn launch(state: &AppState, task_id: &str, project_id: String) {
     let app = state.app.clone();
     let id = task_id.to_string();
     let token = CancellationToken::new();
@@ -132,11 +131,11 @@ fn launch(state: &AppState, task_id: &str) {
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
             cancels.remove(&id);
         }
-        release_next(state);
+        release_next(state, &project_id);
     });
 }
 
-fn release_next(state: &AppState) {
+fn release_next(state: &AppState, project_id: &str) {
     let next = {
         let mut active = state
             .agent_active
@@ -145,19 +144,20 @@ fn release_next(state: &AppState) {
         let next: Option<String> = {
             let conn = state.db();
             conn.query_row(
-                "SELECT id FROM tasks WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1",
-                [],
+                "SELECT id FROM tasks WHERE status = 'queued' AND project_id = ?1
+                 ORDER BY created_at ASC LIMIT 1",
+                [project_id],
                 |row| row.get(0),
             )
             .ok()
         };
         if next.is_none() {
-            *active = false;
+            active.remove(project_id);
         }
         next
     };
     if let Some(task_id) = next {
-        launch(state, &task_id);
+        launch(state, &task_id, project_id.to_string());
     }
 }
 
@@ -199,8 +199,25 @@ async fn run_task(
         (task, project.path, settings)
     };
     let root = canonical_root(Path::new(&project_path))?;
-    let rt = load_chat_runtime(state, &task.provider_id)?;
-    let model = if task.model.trim().is_empty() {
+    if settings.agent_branch_isolation && crate::git::is_repo(&root) {
+        let existing = crate::git::branches(&root).unwrap_or_default();
+        if !existing.is_empty() {
+            let branch = format!("basalt/{}", task.id.chars().take(8).collect::<String>());
+            if existing.iter().any(|item| item == &branch) {
+                crate::git::checkout_branch(&root, &branch)?;
+            } else {
+                crate::git::create_branch(&root, &branch)?;
+            }
+            push_task_event(
+                state,
+                task_id,
+                "BranchCreated",
+                json!({"branch": branch, "taskId": task.id}),
+            );
+        }
+    }
+    let mut rt = load_chat_runtime(state, &task.provider_id)?;
+    let mut model = if task.model.trim().is_empty() {
         rt.provider
             .default_chat_model
             .clone()
@@ -208,7 +225,7 @@ async fn run_task(
     } else {
         task.model.clone()
     };
-    let capabilities = capabilities_for(&rt, &model);
+    let mut capabilities = capabilities_for(&rt, &model);
     if let Some(caps) = &capabilities {
         if caps.tools == CAP_UNSUPPORTED {
             return Err(AppError::msg(format!(
@@ -236,7 +253,7 @@ async fn run_task(
         .map(|caps| caps.vision != CAP_UNSUPPORTED)
         .unwrap_or(true);
     let mut messages: Vec<ChatMessage> = Vec::new();
-    messages.push(ChatMessage::text("system", prompt::system_prompt(&root)));
+    messages.push(ChatMessage::text("system", prompt::system_prompt(state, &root)));
     let prior_tools = prior_tool_summary(state, task_id);
     if !prior_tools.is_empty() {
         messages.push(ChatMessage::text(
@@ -256,9 +273,10 @@ async fn run_task(
         messages.push(ChatMessage::text("user", task.goal.clone()));
     }
 
-    let tools = tools::schemas();
+    let tools = tools::schemas_for(state);
     let mut last_text = String::new();
     let mut iteration = 0usize;
+    let mut fallback_used = false;
 
     loop {
         iteration += 1;
@@ -282,105 +300,138 @@ async fn run_task(
             },
             cache_prompt: true,
         };
-        let adapter = chat_adapter_for(state, &rt, &model)?;
-        let client = state.http.clone();
-        let rt_for = rt.clone();
-        let req_for = request;
-        let token = cancel.clone();
-        let (tx, mut rx) = unbounded_channel::<ProviderEvent>();
-        let round_started = Instant::now();
-        let handle = tauri::async_runtime::spawn(async move {
-            adapter.chat(&client, &rt_for, &req_for, &tx, &token).await
-        });
-
-        let mut text = String::new();
-        let mut calls: BTreeMap<usize, AccCall> = BTreeMap::new();
-        let mut usage = UsageTotals::default();
-        while let Some(event) = rx.recv().await {
-            match event {
-                ProviderEvent::TextDelta(delta) => {
-                    text.push_str(&delta);
-                    emit_chat(
-                        state,
-                        &task,
-                        "delta",
-                        Some(delta),
-                        Some(message_id.clone()),
-                        None,
-                        None,
-                    );
-                }
-                ProviderEvent::ToolCallDelta {
-                    index,
-                    id,
-                    name,
-                    args_delta,
-                } => {
-                    let acc = calls.entry(index).or_default();
-                    if let Some(id) = id {
-                        acc.id = Some(id);
-                    }
-                    if let Some(name) = name {
-                        acc.name = Some(name);
-                    }
-                    acc.args.push_str(&args_delta);
-                }
-                ProviderEvent::Usage {
-                    input_tokens,
-                    output_tokens,
-                    cached_tokens,
-                } => usage.merge(input_tokens, output_tokens, cached_tokens),
-                ProviderEvent::Done { .. } => {}
-            }
-        }
-        let provider_result = handle
-            .await
-            .map_err(|e| AppError::msg(format!("模型任务执行异常：{e}")))?;
-        let duration_ms = round_started.elapsed().as_millis() as u64;
-        if !usage.is_empty() {
-            let conn = state.db();
-            let _ = crate::db::record_run_metric(
-                &conn,
-                &task.session_id,
-                Some(&task.id),
-                &task.provider_id,
-                &model,
-                duration_ms,
-                usage.input_tokens,
-                usage.cached_tokens,
-                usage.output_tokens,
-            );
-        }
-        if let Err(err) = provider_result {
-            if !text.is_empty() {
-                persist_assistant(state, &task, &message_id, &text, &model).ok();
-            }
-            if err.is_cancelled() {
-                emit_chat(
-                    state,
-                    &task,
-                    "cancelled",
-                    None,
-                    Some(message_id),
-                    None,
-                    Some("已停止生成".into()),
-                );
-                return Err(AppError::Cancelled);
-            }
+        let mut streamed_text = String::new();
+        let mut emit_delta = |delta: &str| {
+            streamed_text.push_str(delta);
             emit_chat(
                 state,
                 &task,
-                "error",
+                "delta",
+                Some(delta.to_string()),
+                Some(message_id.clone()),
                 None,
-                Some(message_id),
                 None,
-                Some(err.user_message()),
             );
-            return Err(err);
-        }
+        };
+        let mut on_retry = |attempt: u32, error: &AppError| {
+            push_task_event(
+                state,
+                &task.id,
+                "ProviderRetry",
+                json!({
+                    "attempt": attempt,
+                    "providerId": rt.provider.id,
+                    "model": model,
+                    "error": error.user_message()
+                }),
+            );
+        };
+        let round_result = round::run_round(
+            state,
+            &rt,
+            &model,
+            &request,
+            cancel,
+            &settings.recovery,
+            &mut emit_delta,
+            &mut on_retry,
+        )
+        .await;
+
+        let round_result = match round_result {
+            Ok(result) => result,
+            Err(failure) => {
+                round::record_usage(
+                    state,
+                    &task.session_id,
+                    Some(&task.id),
+                    &rt.provider.id,
+                    &model,
+                    failure.duration_ms,
+                    failure.usage,
+                );
+                if !streamed_text.is_empty() {
+                    persist_assistant(state, &task, &message_id, &streamed_text, &model).ok();
+                }
+                if failure.error.is_cancelled() {
+                    emit_chat(
+                        state,
+                        &task,
+                        "cancelled",
+                        None,
+                        Some(message_id),
+                        None,
+                        Some("已停止生成".into()),
+                    );
+                    return Err(AppError::Cancelled);
+                }
+                if !failure.emitted && !fallback_used {
+                    if let Some((fallback_rt, fallback_model)) =
+                        round::fallback_route(state, &rt.provider.id, &model)
+                    {
+                        let fallback_caps = capabilities_for(&fallback_rt, &fallback_model);
+                        if fallback_caps
+                            .as_ref()
+                            .is_some_and(|caps| caps.tools == CAP_UNSUPPORTED)
+                        {
+                            state.log(
+                                "WARN",
+                                "降级模型不支持工具调用，已跳过供应商降级",
+                            );
+                        } else {
+                            fallback_used = true;
+                            push_task_event(
+                                state,
+                                &task.id,
+                                "ProviderFallback",
+                                json!({
+                                    "fromProviderId": rt.provider.id,
+                                    "fromModel": model,
+                                    "toProviderId": fallback_rt.provider.id,
+                                    "toModel": fallback_model,
+                                    "error": failure.error.user_message()
+                                }),
+                            );
+                            state.log(
+                                "WARN",
+                                &format!(
+                                    "主供应商失败，降级到 {} / {}：{}",
+                                    fallback_rt.provider.name,
+                                    fallback_model,
+                                    failure.error.user_message()
+                                ),
+                            );
+                            rt = fallback_rt;
+                            model = fallback_model;
+                            capabilities = fallback_caps;
+                            continue;
+                        }
+                    }
+                }
+                emit_chat(
+                    state,
+                    &task,
+                    "error",
+                    None,
+                    Some(message_id),
+                    None,
+                    Some(failure.error.user_message()),
+                );
+                return Err(failure.error);
+            }
+        };
+        round::record_usage(
+            state,
+            &task.session_id,
+            Some(&task.id),
+            &rt.provider.id,
+            &model,
+            round_result.duration_ms,
+            round_result.usage,
+        );
         if cancel.is_cancelled() {
-            if !text.is_empty() {
-                persist_assistant(state, &task, &message_id, &text, &model).ok();
+            if !streamed_text.is_empty() {
+                persist_assistant(state, &task, &message_id, &streamed_text, &model).ok();
             }
             emit_chat(
                 state,
@@ -400,34 +451,18 @@ async fn run_task(
         }
         let _ = crate::providers::mark_capabilities(
             state,
-            &task.provider_id,
+            &rt.provider.id,
             &model,
             &updates,
         );
         crate::providers::optimize::schedule_model_optimization(
             state,
-            &task.provider_id,
+            &rt.provider.id,
             &model,
         );
 
-        let mut assistant_calls = Vec::new();
-        for (index, acc) in calls {
-            let Some(name) = acc.name else { continue };
-            let id = acc
-                .id
-                .unwrap_or_else(|| format!("call_{}_{}", &task.id[..task.id.len().min(8)], index));
-            let raw = acc.args.trim();
-            let arguments: Value = if raw.is_empty() {
-                json!({})
-            } else {
-                serde_json::from_str(raw).unwrap_or_else(|_| json!({"__raw": raw}))
-            };
-            assistant_calls.push(ProviderToolCall {
-                id,
-                name,
-                arguments,
-            });
-        }
+        let text = round_result.text;
+        let assistant_calls = round_result.calls;
 
         if !text.trim().is_empty() {
             last_text = text.clone();
@@ -544,7 +579,11 @@ async fn execute_tool_call(
 ) -> AppResult<String> {
     let call_db_id = Uuid::new_v4().to_string();
     let created_at = now();
-    let decision = evaluate(&call.name, &call.arguments, root, settings);
+    let decision = if crate::mcp::is_mcp_tool(&call.name) {
+        crate::mcp::decision(state, &call.name)
+    } else {
+        evaluate(&call.name, &call.arguments, root, settings)
+    };
     let requires_approval = matches!(decision, PolicyDecision::NeedsApproval(_));
     {
         let conn = state.db();
@@ -802,6 +841,7 @@ fn finalize(state: &AppState, task_id: &str, result: AppResult<Option<String>>) 
         Ok(Some(report)) => {
             let report = augment_report(state, &task, &report);
             finish_task(state, task_id, TASK_COMPLETED, Some(&report), None);
+            maybe_auto_review(state, &task);
         }
         Ok(None) => {
             finish_task(
@@ -811,6 +851,7 @@ fn finalize(state: &AppState, task_id: &str, result: AppResult<Option<String>>) 
                 Some("任务执行完成。"),
                 None,
             );
+            maybe_auto_review(state, &task);
         }
         Err(err) if err.is_cancelled() => {
             let conn = state.db();
@@ -837,6 +878,79 @@ fn finalize(state: &AppState, task_id: &str, result: AppResult<Option<String>>) 
             );
         }
     }
+}
+
+fn maybe_auto_review(state: &AppState, task: &Task) {
+    let auto = {
+        let conn = state.db();
+        crate::db::load_settings(&conn).auto_review
+    };
+    if !auto {
+        return;
+    }
+    let has_changes = list_changes(state, Some(&task.id), None)
+        .map(|changes| !changes.is_empty())
+        .unwrap_or(false);
+    if !has_changes {
+        return;
+    }
+    let app = state.app.clone();
+    let task = task.clone();
+    tauri::async_runtime::spawn(async move {
+        let guard = app.state::<AppState>();
+        let state: &AppState = &guard;
+        push_task_event(
+            state,
+            &task.id,
+            "ReviewStarted",
+            json!({"taskId": task.id}),
+        );
+        match review::generate(state, &task).await {
+            Ok((model, report)) => {
+                let message_id = Uuid::new_v4().to_string();
+                let content = format!("### 自动代码审查\n\n{report}");
+                if let Ok(message) = messaging::add_message(
+                    state,
+                    Some(&message_id),
+                    &task.session_id,
+                    "assistant",
+                    &content,
+                    "text",
+                    &[],
+                    Some(&task.id),
+                    Some(&model),
+                ) {
+                    emit_chat(
+                        state,
+                        &task,
+                        "message",
+                        None,
+                        Some(message_id),
+                        Some(message),
+                        None,
+                    );
+                }
+                push_task_event(
+                    state,
+                    &task.id,
+                    "ReviewCompleted",
+                    json!({"taskId": task.id, "model": model, "report": report}),
+                );
+            }
+            Err(error) => {
+                state.log(
+                    "WARN",
+                    &format!("自动代码审查失败：{}", error.user_message()),
+                );
+                push_task_event(
+                    state,
+                    &task.id,
+                    "ReviewCompleted",
+                    json!({"taskId": task.id, "error": error.user_message()}),
+                );
+            }
+        }
+    });
 }
 
 fn augment_report(state: &AppState, task: &Task, base: &str) -> String {

@@ -7,12 +7,15 @@ pub mod events;
 pub mod files;
 pub mod git;
 pub mod logging;
+pub mod mcp;
 pub mod messaging;
 pub mod model_interfaces;
 pub mod models;
+pub mod plugins;
 pub mod policy;
 pub mod providers;
 pub mod secrets;
+pub mod skills;
 pub mod state;
 pub mod terminal;
 
@@ -63,6 +66,8 @@ pub fn run() {
             commands::files::git_checkout_branch,
             commands::files::git_create_branch,
             commands::files::git_file_diff,
+            commands::files::git_commit,
+            commands::files::git_restore_file,
             commands::sessions::session_list,
             commands::sessions::session_create,
             commands::sessions::session_update,
@@ -96,7 +101,23 @@ pub fn run() {
             commands::images::image_history,
             commands::images::image_delete,
             commands::images::image_save_as,
-            commands::images::chat_image_generate
+            commands::images::chat_image_generate,
+            commands::extensions::skill_list,
+            commands::extensions::skill_install,
+            commands::extensions::skill_set_enabled,
+            commands::extensions::skill_delete,
+            commands::extensions::mcp_server_list,
+            commands::extensions::mcp_server_save,
+            commands::extensions::mcp_server_delete,
+            commands::extensions::mcp_server_set_enabled,
+            commands::extensions::mcp_server_refresh,
+            commands::extensions::mcp_server_test,
+            commands::extensions::mcp_tool_list,
+            commands::extensions::mcp_tool_call,
+            commands::extensions::tool_registry,
+            commands::extensions::plugin_list,
+            commands::extensions::plugin_install,
+            commands::extensions::plugin_uninstall
         ])
         .build(tauri::generate_context!())
         .expect("Basalt 无法启动 Tauri 应用");
@@ -119,6 +140,21 @@ pub fn run() {
                 for (_, token) in chats.iter() {
                     token.cancel();
                 }
+                drop(cancels);
+                drop(chats);
+                let handle = app_handle.clone();
+                let _ = std::thread::spawn(move || {
+                    if let Some(state) = handle.try_state::<AppState>() {
+                        let _ = tauri::async_runtime::block_on(async {
+                            tokio::time::timeout(
+                                std::time::Duration::from_secs(3),
+                                mcp::disconnect_all(&state),
+                            )
+                            .await
+                        });
+                    }
+                })
+                .join();
                 events::mark_clean_exit(&state);
                 state.log("INFO", "Basalt Workbench 正常退出");
             }

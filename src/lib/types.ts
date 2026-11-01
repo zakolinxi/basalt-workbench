@@ -200,11 +200,28 @@ export interface Change {
   createdAt: string;
 }
 
+export interface SubagentRun {
+  id: string;
+  taskId: string;
+  role: string;
+  task: string;
+  providerId: string;
+  model: string;
+  status: string;
+  report?: string | null;
+  error?: string | null;
+  rounds: number;
+  toolCalls: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface TaskDetail {
   task: Task;
   events: TaskEvent[];
   toolCalls: ToolCall[];
   changes: Change[];
+  subagents: SubagentRun[];
 }
 
 export interface FileDiff {
@@ -304,6 +321,13 @@ export interface Routing {
   imageEdit: Route;
 }
 
+export interface RecoverySettings {
+  maxRetries: number;
+  backoffMs: number;
+  fallbackProviderId: string;
+  fallbackModel: string;
+}
+
 export interface Settings {
   theme: "dark" | "light" | "system";
   palette: ThemePalette;
@@ -316,6 +340,84 @@ export interface Settings {
   chatFontSize: number;
   showHiddenFiles: boolean;
   userAgent: string;
+  recovery: RecoverySettings;
+  autoReview: boolean;
+  agentBranchIsolation: boolean;
+}
+
+export interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  source: string;
+  path: string;
+  enabled: boolean;
+  pluginId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface McpServer {
+  id: string;
+  name: string;
+  transport: "stdio" | "http" | string;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  url: string;
+  headers: Record<string, string>;
+  enabled: boolean;
+  autoApprove: boolean;
+  status: string;
+  lastError?: string | null;
+  lastRefreshedAt?: string | null;
+  pluginId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface McpServerInput {
+  id?: string | null;
+  name: string;
+  transport: "stdio" | "http";
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  url: string;
+  headers: Record<string, string>;
+  enabled: boolean;
+  autoApprove: boolean;
+}
+
+export interface McpTool {
+  serverId: string;
+  serverName: string;
+  name: string;
+  toolName: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  readonly: boolean;
+  refreshedAt: string;
+}
+
+export interface ToolInfo {
+  name: string;
+  description: string;
+  source: string;
+  server?: string | null;
+  readonly: boolean;
+  requiresApproval: boolean;
+}
+
+export interface InstalledPlugin {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  path: string;
+  skills: number;
+  mcpServers: number;
+  createdAt: string;
 }
 
 export interface Bootstrap {

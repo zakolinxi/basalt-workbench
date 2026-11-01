@@ -290,6 +290,122 @@ pub struct TaskDetail {
     pub events: Vec<TaskEvent>,
     pub tool_calls: Vec<ToolCall>,
     pub changes: Vec<Change>,
+    #[serde(default)]
+    pub subagents: Vec<SubagentRun>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SubagentRun {
+    pub id: String,
+    pub task_id: String,
+    pub role: String,
+    pub task: String,
+    pub provider_id: String,
+    pub model: String,
+    pub status: String,
+    pub report: Option<String>,
+    pub error: Option<String>,
+    pub rounds: u64,
+    pub tool_calls: u64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Skill {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub source: String,
+    pub path: String,
+    pub enabled: bool,
+    #[serde(default)]
+    pub plugin_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpServer {
+    pub id: String,
+    pub name: String,
+    pub transport: String,
+    pub command: String,
+    pub args: Vec<String>,
+    pub env: Value,
+    pub url: String,
+    pub headers: Value,
+    pub enabled: bool,
+    pub auto_approve: bool,
+    pub status: String,
+    pub last_error: Option<String>,
+    pub last_refreshed_at: Option<String>,
+    pub plugin_id: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpServerInput {
+    #[serde(default)]
+    pub id: Option<String>,
+    pub name: String,
+    pub transport: String,
+    #[serde(default)]
+    pub command: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+    #[serde(default)]
+    pub env: Value,
+    #[serde(default)]
+    pub url: String,
+    #[serde(default)]
+    pub headers: Value,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub auto_approve: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpTool {
+    pub server_id: String,
+    pub server_name: String,
+    pub name: String,
+    pub tool_name: String,
+    pub description: String,
+    pub input_schema: Value,
+    pub readonly: bool,
+    pub refreshed_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolInfo {
+    pub name: String,
+    pub description: String,
+    pub source: String,
+    pub server: Option<String>,
+    pub readonly: bool,
+    pub requires_approval: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstalledPlugin {
+    pub id: String,
+    pub name: String,
+    pub version: String,
+    pub description: String,
+    pub path: String,
+    pub skills: u64,
+    pub mcp_servers: u64,
+    pub created_at: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -517,6 +633,38 @@ impl Default for Routing {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RecoverySettings {
+    #[serde(default = "default_recovery_retries")]
+    pub max_retries: u32,
+    #[serde(default = "default_recovery_backoff")]
+    pub backoff_ms: u64,
+    #[serde(default)]
+    pub fallback_provider_id: String,
+    #[serde(default)]
+    pub fallback_model: String,
+}
+
+pub fn default_recovery_retries() -> u32 {
+    2
+}
+
+pub fn default_recovery_backoff() -> u64 {
+    800
+}
+
+impl Default for RecoverySettings {
+    fn default() -> Self {
+        Self {
+            max_retries: default_recovery_retries(),
+            backoff_ms: default_recovery_backoff(),
+            fallback_provider_id: String::new(),
+            fallback_model: String::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Settings {
     pub theme: String,
     #[serde(default = "default_palette")]
@@ -532,6 +680,12 @@ pub struct Settings {
     pub show_hidden_files: bool,
     #[serde(default = "default_user_agent")]
     pub user_agent: String,
+    #[serde(default)]
+    pub recovery: RecoverySettings,
+    #[serde(default)]
+    pub auto_review: bool,
+    #[serde(default)]
+    pub agent_branch_isolation: bool,
 }
 
 pub fn default_language() -> String {
@@ -539,7 +693,7 @@ pub fn default_language() -> String {
 }
 
 pub fn default_user_agent() -> String {
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.28".into()
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.2.0".into()
 }
 
 pub const REASONING_EFFORTS: [&str; 8] = [
@@ -570,6 +724,9 @@ impl Default for Settings {
             chat_font_size: 14,
             show_hidden_files: false,
             user_agent: default_user_agent(),
+            recovery: RecoverySettings::default(),
+            auto_review: false,
+            agent_branch_isolation: false,
         }
     }
 }

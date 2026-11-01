@@ -10,6 +10,8 @@ pub enum AppError {
     Io(#[from] std::io::Error),
     #[error("网络请求失败：{0}")]
     Http(#[from] reqwest::Error),
+    #[error("{message}")]
+    HttpStatus { status: u16, message: String },
     #[error("数据解析失败：{0}")]
     Json(#[from] serde_json::Error),
     #[error("密钥存储错误：{0}")]
@@ -25,6 +27,25 @@ impl AppError {
 
     pub fn is_cancelled(&self) -> bool {
         matches!(self, Self::Cancelled) || self.to_string().contains("操作已取消")
+    }
+
+    /// Transient failures worth retrying without asking the user. Permission,
+    /// validation and parsing errors are deliberately excluded.
+    pub fn is_retryable(&self) -> bool {
+        match self {
+            Self::Http(err) => {
+                err.is_timeout() || err.is_connect() || err.is_request() || err.is_body()
+            }
+            Self::HttpStatus { status, .. } => {
+                matches!(*status, 408 | 409 | 425 | 429) || (500..=599).contains(status)
+            }
+            Self::Msg(message) => {
+                message.contains("服务端请求超时")
+                    || message.contains("供应商服务异常")
+                    || message.contains("请求过于频繁")
+            }
+            _ => false,
+        }
     }
 
     pub fn user_message(&self) -> String {
@@ -79,10 +100,14 @@ pub fn http_status_error(status: reqwest::StatusCode, body: &str) -> AppError {
         _ => format!("请求失败（HTTP {}）", status.as_u16()),
     };
     let snippet: String = body.chars().take(600).collect();
-    if snippet.trim().is_empty() {
-        AppError::Msg(friendly)
+    let message = if snippet.trim().is_empty() {
+        friendly
     } else {
-        AppError::Msg(format!("{friendly}：{snippet}"))
+        format!("{friendly}：{snippet}")
+    };
+    AppError::HttpStatus {
+        status: status.as_u16(),
+        message,
     }
 }
 
@@ -114,5 +139,13 @@ mod tests {
     fn http_errors_are_friendly() {
         let err = http_status_error(reqwest::StatusCode::UNAUTHORIZED, "invalid key");
         assert!(err.to_string().contains("认证失败"));
+    }
+
+    #[test]
+    fn only_transient_http_status_retries() {
+        assert!(http_status_error(reqwest::StatusCode::TOO_MANY_REQUESTS, "busy").is_retryable());
+        assert!(http_status_error(reqwest::StatusCode::INTERNAL_SERVER_ERROR, "down").is_retryable());
+        assert!(!http_status_error(reqwest::StatusCode::UNAUTHORIZED, "bad key").is_retryable());
+        assert!(!http_status_error(reqwest::StatusCode::NOT_FOUND, "missing").is_retryable());
     }
 }

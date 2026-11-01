@@ -1,11 +1,43 @@
 use std::path::Path;
 
-pub fn system_prompt(project_root: &Path) -> String {
+use crate::state::AppState;
+
+fn mcp_section(state: &AppState) -> String {
+    let servers = crate::mcp::list_servers(state).unwrap_or_default();
+    let enabled: Vec<_> = servers.into_iter().filter(|server| server.enabled).collect();
+    if enabled.is_empty() {
+        return String::new();
+    }
+    let mut out = String::from(
+        "\nMCP 服务器（外部工具，工具名以 mcp_ 开头）：\n\
+         调用前阅读工具 schema。未自动授权的服务器会在执行前请求用户批准。\n",
+    );
+    for server in enabled.iter().take(20) {
+        let count = crate::mcp::list_tools(state, &server.id)
+            .map(|tools| tools.len())
+            .unwrap_or(0);
+        out.push_str(&format!(
+            "- {}（{} 个工具，{}）\n",
+            server.name,
+            count,
+            if server.auto_approve {
+                "自动授权"
+            } else {
+                "需用户批准"
+            }
+        ));
+    }
+    out
+}
+
+pub fn system_prompt(state: &AppState, project_root: &Path) -> String {
     let git_note = if crate::git::is_repo(project_root) {
         "当前项目是 Git 仓库。"
     } else {
         "当前项目不是 Git 仓库，git_status 会返回 isRepo=false。"
     };
+    let skill_note = crate::skills::prompt_section(state);
+    let mcp_note = mcp_section(state);
     format!(
         r#"你是 Basalt Agent，一个运行在 Windows 桌面工作台中的编程执行代理。
 
@@ -27,14 +59,18 @@ pub fn system_prompt(project_root: &Path) -> String {
 内置工具（全部通过工具调用，不要凭空假设结果）：
 - 项目内：list_files、search_files、read_file、write_file、apply_patch、git_status、git_diff、run_command、run_tests、update_plan。
 - 联网：web_search 搜索公开网页；fetch_url 读取指定公开 HTTPS 页面。涉及最新版本、官方文档、新闻或页面事实时必须实际搜索/读取，并在结论中给出真实 URL。
-- 子代理：spawn_subagent 可以启动只读子代理做独立调研、代码审查或方案比较。给子代理写清楚任务、范围和期望输出；子代理不能修改文件或执行命令，不能绕过审批。不要用它替代你自己完成核心修改。
+- 子代理：spawn_subagent 启动单个只读子代理；spawn_agents 可并行启动最多 6 个专业子代理（researcher、planner、reviewer、verifier）。给子代理写清楚任务、范围和期望输出；它们不能修改文件或执行命令，也不能绕过审批。独立调研、规划、审查与验证适合并行拆分，但最终修改仍由你完成。
+- MCP：以 mcp_ 开头的工具来自用户配置的 MCP 服务器，属于外部进程或远程服务。只在任务确有必要时调用，并遵守批准流程。
+- Skill：如果用户安装了与任务匹配的 Skill，先调用 read_skill 读取完整说明，按其中的工作流执行，再用 file 参数读取需要的脚本或模板。
 - 搜索词、URL 和子代理上下文里不要放置密钥、令牌、密码或用户隐私数据。只读取公开页面，不访问 localhost 或内网地址。
-- 如果工具返回错误，阅读真实错误并调整；不要重复执行同一个失败调用。
+- 如果工具返回错误，阅读真实错误并调整；不要重复执行同一个失败调用。瞬时网络错误已由运行时自动重试，不要因为一次失败就放弃。
 - 不要反复搜索相同目录或相同关键词。已有结果足够时立即读取目标文件并开始修改；
   重复调用不会带来新信息。只有完成任务、确认被阻塞或需要用户决策时才结束。
-
+{skill_note}{mcp_note}
 用户要求你执行编程任务。按需调用工具，直到完成或确认被阻塞。"#,
         root = project_root.to_string_lossy(),
-        git_note = git_note
+        git_note = git_note,
+        skill_note = skill_note,
+        mcp_note = mcp_note
     )
 }

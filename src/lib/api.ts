@@ -9,6 +9,10 @@ import type {
   GitStatus,
   ImageCapabilities,
   ImageGeneration,
+  InstalledPlugin,
+  McpServer,
+  McpServerInput,
+  McpTool,
   Message,
   ModelEndpointView,
   Project,
@@ -18,8 +22,10 @@ import type {
   RunMetrics,
   Session,
   Settings,
+  Skill,
   Task,
   TaskDetail,
+  ToolInfo,
   UsageStats,
 } from "./types";
 
@@ -97,6 +103,45 @@ export const api = {
     invoke<GitStatus>("git_create_branch", { projectId, branch }),
   gitFileDiff: (projectId: string, path: string) =>
     invoke<FileDiff>("git_file_diff", { projectId, path }),
+  gitCommit: (projectId: string, message: string, paths: string[] = []) =>
+    invoke<string>("git_commit", { input: { projectId, message, paths } }),
+  gitRestoreFile: (projectId: string, path: string) =>
+    invoke<GitStatus>("git_restore_file", { projectId, path }),
+
+  skillList: () => invoke<Skill[]>("skill_list"),
+  skillInstall: (path: string) => invoke<Skill>("skill_install", { path }),
+  skillSetEnabled: (skillId: string, enabled: boolean) =>
+    invoke<Skill>("skill_set_enabled", { skillId, enabled }),
+  skillDelete: (skillId: string) => invoke<void>("skill_delete", { skillId }),
+
+  mcpServerList: () => invoke<McpServer[]>("mcp_server_list"),
+  mcpServerSave: (input: McpServerInput) =>
+    invoke<McpServer>("mcp_server_save", { input }),
+  mcpServerDelete: (serverId: string) =>
+    invoke<void>("mcp_server_delete", { serverId }),
+  mcpServerSetEnabled: (serverId: string, enabled: boolean) =>
+    invoke<McpServer>("mcp_server_set_enabled", { serverId, enabled }),
+  mcpServerRefresh: (serverId: string) =>
+    invoke<McpTool[]>("mcp_server_refresh", { serverId }),
+  mcpToolList: (serverId: string) =>
+    invoke<McpTool[]>("mcp_tool_list", { serverId }),
+  mcpToolCall: (
+    serverId: string,
+    toolName: string,
+    args: Record<string, unknown>,
+  ) =>
+    invoke<{ data: Record<string, unknown>; summary: string }>("mcp_tool_call", {
+      serverId,
+      toolName,
+      arguments: args,
+    }),
+
+  toolRegistry: () => invoke<ToolInfo[]>("tool_registry"),
+  pluginList: () => invoke<InstalledPlugin[]>("plugin_list"),
+  pluginInstall: (path: string) =>
+    invoke<InstalledPlugin>("plugin_install", { path }),
+  pluginUninstall: (pluginId: string) =>
+    invoke<void>("plugin_uninstall", { pluginId }),
 
   sessionList: () => invoke<Session[]>("session_list"),
   sessionCreate: (input: {

@@ -51,6 +51,28 @@ pub fn branches(root: &Path) -> AppResult<Vec<String>> {
         .collect())
 }
 
+fn safe_relative_path(path: &str) -> AppResult<String> {
+    let path = path.trim();
+    if path.is_empty() {
+        return Err(AppError::msg("文件路径不能为空"));
+    }
+    let parsed = Path::new(path);
+    if parsed.is_absolute() {
+        return Err(AppError::msg("Git 操作只能使用项目内相对路径"));
+    }
+    for component in parsed.components() {
+        if matches!(
+            component,
+            std::path::Component::ParentDir
+                | std::path::Component::RootDir
+                | std::path::Component::Prefix(_)
+        ) {
+            return Err(AppError::msg("Git 操作路径不能包含 .. 或根路径"));
+        }
+    }
+    Ok(path.replace('\\', "/"))
+}
+
 fn validate_branch_name(root: &Path, branch: &str) -> AppResult<String> {
     let branch = branch.trim();
     if branch.is_empty() || branch.chars().count() > 200 {
@@ -93,6 +115,90 @@ pub fn create_branch(root: &Path, branch: &str) -> AppResult<()> {
     if !output.status.success() {
         return Err(AppError::msg(format!(
             "新建分支失败：{}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+    Ok(())
+}
+
+pub fn commit(root: &Path, message: &str, paths: &[String]) -> AppResult<String> {
+    if !is_repo(root) {
+        return Err(AppError::msg("当前目录不是 Git 仓库"));
+    }
+    let message = message.trim();
+    if message.is_empty() {
+        return Err(AppError::msg("提交信息不能为空"));
+    }
+    if message.chars().count() > 5000 {
+        return Err(AppError::msg("提交信息过长"));
+    }
+    let mut safe_paths = Vec::new();
+    for path in paths {
+        safe_paths.push(safe_relative_path(path)?);
+    }
+    if safe_paths.is_empty() {
+        let output = run_git(root, &["add", "-A", "--", "."])?;
+        if !output.status.success() {
+            return Err(AppError::msg(format!(
+                "git add 失败：{}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            )));
+        }
+        let output = run_git(root, &["commit", "-m", message])?;
+        if !output.status.success() {
+            return Err(AppError::msg(format!(
+                "提交失败：{}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            )));
+        }
+    } else {
+        let mut add_args: Vec<&str> = vec!["add", "-A", "--"];
+        for path in &safe_paths {
+            add_args.push(path);
+        }
+        let output = run_git(root, &add_args)?;
+        if !output.status.success() {
+            return Err(AppError::msg(format!(
+                "git add 失败：{}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            )));
+        }
+        let mut commit_args: Vec<&str> = vec!["commit", "-m", message, "--"];
+        for path in &safe_paths {
+            commit_args.push(path);
+        }
+        let output = run_git(root, &commit_args)?;
+        if !output.status.success() {
+            return Err(AppError::msg(format!(
+                "提交失败：{}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            )));
+        }
+    }
+    let output = run_git(root, &["rev-parse", "--short", "HEAD"])?;
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+/// Restores one tracked file to HEAD. Untracked files are intentionally not
+/// deleted here; removing them is a separate, explicit action.
+pub fn restore_file(root: &Path, path: &str) -> AppResult<()> {
+    if !is_repo(root) {
+        return Err(AppError::msg("当前目录不是 Git 仓库"));
+    }
+    let path = safe_relative_path(path)?;
+    let tracked = run_git(root, &["ls-files", "--error-unmatch", "--", &path])?;
+    if !tracked.status.success() {
+        return Err(AppError::msg(
+            "该文件未被 Git 跟踪，无法还原。未跟踪文件请在文件树中删除。",
+        ));
+    }
+    let output = run_git(
+        root,
+        &["restore", "--source=HEAD", "--staged", "--worktree", "--", &path],
+    )?;
+    if !output.status.success() {
+        return Err(AppError::msg(format!(
+            "还原失败：{}",
             String::from_utf8_lossy(&output.stderr).trim()
         )));
     }
@@ -283,5 +389,23 @@ mod tests {
         let text = diff_text(root, Some("hello.txt")).unwrap();
         assert!(text.contains("-two"));
         assert!(text.contains("+TWO"));
+        std::fs::write(root.join("second.txt"), "new file\n").unwrap();
+        let hash = commit(root, "add second file", &["second.txt".to_string()]).unwrap();
+        assert!(!hash.is_empty());
+        assert!(!status(root)
+            .entries
+            .iter()
+            .any(|entry| entry.path == "second.txt"));
+        std::fs::write(root.join("second.txt"), "changed\n").unwrap();
+        restore_file(root, "second.txt").unwrap();
+        assert_eq!(
+            std::fs::read_to_string(root.join("second.txt"))
+                .unwrap()
+                .replace("\r\n", "\n"),
+            "new file\n"
+        );
+        assert!(restore_file(root, "../outside.txt").is_err());
+        std::fs::write(root.join("untracked.txt"), "x").unwrap();
+        assert!(restore_file(root, "untracked.txt").is_err());
     }
 }

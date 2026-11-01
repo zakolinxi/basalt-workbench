@@ -185,10 +185,34 @@ pub fn schemas() -> Vec<ToolSchema> {
                 "type": "object",
                 "properties": {
                     "task": {"type": "string", "description": "明确的子任务与期望输出"},
-                    "role": {"type": "string", "enum": ["researcher", "reviewer", "planner"]},
+                    "role": {"type": "string", "enum": ["researcher", "reviewer", "planner", "verifier"]},
                     "context": {"type": "string", "description": "可选：已知背景、文件范围或约束"}
                 },
                 "required": ["task"]
+            }),
+        },
+        ToolSchema {
+            name: "spawn_agents".into(),
+            description: "并行启动多个只读专业子代理（最多 6 个）。用于把独立调研、规划、审查和验证拆开同时进行，再汇总结果。子代理不会修改文件或执行命令；最终仍由你完成修改。".into(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "agents": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 6,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "role": {"type": "string", "enum": ["researcher", "reviewer", "planner", "verifier"]},
+                                "task": {"type": "string", "description": "明确的子任务与期望输出"},
+                                "context": {"type": "string", "description": "可选：背景、文件范围或约束"}
+                            },
+                            "required": ["task"]
+                        }
+                    }
+                },
+                "required": ["agents"]
             }),
         },
     ]
@@ -197,7 +221,7 @@ pub fn schemas() -> Vec<ToolSchema> {
     .collect()
 }
 
-const READONLY_TOOLS: [&str; 7] = [
+const READONLY_TOOLS: [&str; 8] = [
     "list_files",
     "search_files",
     "read_file",
@@ -205,6 +229,7 @@ const READONLY_TOOLS: [&str; 7] = [
     "git_diff",
     "web_search",
     "fetch_url",
+    "read_skill",
 ];
 
 pub fn schemas_readonly() -> Vec<ToolSchema> {
@@ -212,6 +237,38 @@ pub fn schemas_readonly() -> Vec<ToolSchema> {
         .into_iter()
         .filter(|tool| READONLY_TOOLS.contains(&tool.name.as_str()))
         .collect()
+}
+
+/// Full registry used by the main agent: built-in tools, Skill loader and all
+/// tools exposed by enabled MCP servers.
+pub fn schemas_for(state: &AppState) -> Vec<ToolSchema> {
+    let mut tools = schemas();
+    tools.extend(crate::skills::tool_schemas(state));
+    tools.extend(crate::mcp::tool_schemas(state));
+    tools
+}
+
+pub fn tool_infos() -> Vec<crate::models::ToolInfo> {
+    schemas()
+        .into_iter()
+        .map(|tool| crate::models::ToolInfo {
+            readonly: READONLY_TOOLS.contains(&tool.name.as_str()),
+            requires_approval: matches!(
+                tool.name.as_str(),
+                "write_file" | "apply_patch" | "run_command" | "run_tests"
+            ),
+            name: tool.name,
+            description: tool.description,
+            source: "builtin".into(),
+            server: None,
+        })
+        .collect()
+}
+
+pub fn schemas_readonly_for(state: &AppState) -> Vec<ToolSchema> {
+    let mut tools = schemas_readonly();
+    tools.extend(crate::skills::tool_schemas(state));
+    tools
 }
 
 pub async fn execute_readonly(
@@ -236,6 +293,10 @@ pub async fn execute(
     args: &Value,
     cancel: &CancellationToken,
 ) -> AppResult<ToolResult> {
+    if crate::mcp::is_mcp_tool(name) {
+        let (data, summary) = crate::mcp::call_tool(state, name, args, cancel).await?;
+        return Ok(ToolResult { data, summary });
+    }
     match name {
         "update_plan" => update_plan(state, task, args),
         "list_files" => list_files(state, task, root, args),
@@ -269,11 +330,38 @@ pub async fn execute(
         "run_command" => run_command_tool(state, task, root, args, cancel, false).await,
         "run_tests" => run_command_tool(state, task, root, args, cancel, true).await,
         "web_search" | "fetch_url" => super::web::execute(state, name, args, cancel).await,
+        "read_skill" => read_skill(state, args),
         "spawn_subagent" => {
             Box::pin(super::subagent::run(state, task, root, args, cancel)).await
         }
+        "spawn_agents" => {
+            Box::pin(super::subagent::run_many(state, task, root, args, cancel)).await
+        }
         other => Err(AppError::msg(format!("未知工具：{other}"))),
     }
+}
+
+fn read_skill(state: &AppState, args: &Value) -> AppResult<ToolResult> {
+    let name = args
+        .get("name")
+        .and_then(|value| value.as_str())
+        .unwrap_or_default()
+        .trim();
+    if name.is_empty() {
+        return Err(AppError::msg("read_skill 需要 Skill 名称"));
+    }
+    let file = args.get("file").and_then(|value| value.as_str());
+    let (skill, content, directory, truncated) = crate::skills::read(state, name, file)?;
+    Ok(ToolResult {
+        data: json!({
+            "skill": skill,
+            "file": file.unwrap_or("SKILL.md"),
+            "directory": directory,
+            "content": content,
+            "truncated": truncated
+        }),
+        summary: format!("读取 Skill：{name}"),
+    })
 }
 
 fn update_plan(state: &AppState, task: &Task, args: &Value) -> AppResult<ToolResult> {

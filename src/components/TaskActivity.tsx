@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import {
+  AlertTriangle,
   CheckCircle2,
   ChevronRight,
   Circle,
   Loader2,
+  RefreshCcw,
   TestTube2,
   XCircle,
 } from "lucide-react";
@@ -27,6 +29,8 @@ const ACTIVITY_TYPES = new Set([
   "ToolCallCompleted",
   "TerminalOutput",
   "TestCompleted",
+  "ProviderRetry",
+  "ProviderFallback",
 ]);
 
 export function isTaskActivityEvent(event: TaskEvent): boolean {
@@ -143,7 +147,14 @@ export function TaskActivity({ events }: { events: TaskEvent[] }) {
     () => events.filter((event) => event.type === "TestCompleted"),
     [events],
   );
-  if (!tools.length && !tests.length) return null;
+  const recoveries = useMemo(
+    () =>
+      events.filter((event) =>
+        ["ProviderRetry", "ProviderFallback"].includes(event.type),
+      ),
+    [events],
+  );
+  if (!tools.length && !tests.length && !recoveries.length) return null;
 
   const failed = tools.filter((tool) =>
     ["failed", "denied"].includes(tool.status),
@@ -271,6 +282,32 @@ export function TaskActivity({ events }: { events: TaskEvent[] }) {
             <Badge tone={ok ? "ok" : "err"}>{ok ? "PASS" : "FAIL"}</Badge>
             <span className="task-test-exit">
               exit {String(payload.exitCode ?? "?")}
+            </span>
+          </div>
+        );
+      })}
+      {recoveries.map((event) => {
+        const payload = (event.payload ?? {}) as Record<string, any>;
+        const fallback = event.type === "ProviderFallback";
+        return (
+          <div className="task-recovery-row" key={event.id}>
+            {fallback ? (
+              <RefreshCcw size={12} className="text-warn" />
+            ) : (
+              <AlertTriangle size={12} className="text-warn" />
+            )}
+            <span className="task-recovery-label">
+              {fallback ? "已自动降级到备用供应商" : "瞬时错误自动重试"}
+            </span>
+            {fallback ? (
+              <span className="name">{String(payload.toModel ?? "")}</span>
+            ) : (
+              <span className="task-recovery-attempt">
+                {`第 ${String(payload.attempt ?? 1)} 次`}
+              </span>
+            )}
+            <span className="task-recovery-error truncate">
+              {String(payload.error ?? "")}
             </span>
           </div>
         );

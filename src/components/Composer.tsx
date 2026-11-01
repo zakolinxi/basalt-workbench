@@ -230,34 +230,39 @@ export function Composer() {
   );
 
   useEffect(() => {
-    const preferred = session
-      ? chatProviders.find((item) => item.id === session.providerId) ??
-        chatProviders[0]
-      : chatProviders.find((item) => item.id === settings.routing.chat.providerId) ??
-        chatProviders[0];
+    const route =
+      mode === "agent" && settings.routing.agentExecute.providerId
+        ? settings.routing.agentExecute
+        : settings.routing.chat;
+    const preferred =
+      chatProviders.find((item) => item.id === route.providerId) ??
+      (session
+        ? chatProviders.find((item) => item.id === session.providerId)
+        : undefined) ??
+      chatProviders[0];
     setProviderId(preferred?.id ?? "");
     const fromSession =
       preferred && session && preferred.id === session.providerId
         ? session.model
         : null;
     const fromRouting =
-      preferred && preferred.id === settings.routing.chat.providerId
-        ? settings.routing.chat.model
-        : null;
+      preferred && preferred.id === route.providerId ? route.model : null;
     setModel(
-      fromSession ||
-        fromRouting ||
+      (mode === "agent" ? fromRouting || fromSession : fromSession || fromRouting) ||
         preferred?.defaultChatModel ||
         preferred?.models[0]?.id ||
         "",
     );
   }, [
     chatProviders,
+    mode,
     session?.id,
     session?.providerId,
     session?.model,
     settings.routing.chat.providerId,
     settings.routing.chat.model,
+    settings.routing.agentExecute.providerId,
+    settings.routing.agentExecute.model,
   ]);
 
   useEffect(() => {

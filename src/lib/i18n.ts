@@ -5,6 +5,7 @@ import { componentDictionaries } from "./locales-components";
 import { libDictionaries } from "./locales-lib";
 import { providerDictionaries } from "./locales-providers";
 import { imageDictionaries } from "./locales-images";
+import { extensionDictionaries } from "./locales-extensions";
 
 type TranslatedLanguage = Exclude<Language, "zh-CN">;
 
@@ -16,6 +17,7 @@ const dictionaries: Record<TranslatedLanguage, Record<string, string>> = {
     ...libDictionaries["en-US"],
     ...providerDictionaries["en-US"],
     ...imageDictionaries["en-US"],
+    ...extensionDictionaries["en-US"],
   },
   "ja-JP": {
     ...baseDictionaries["ja-JP"],
@@ -24,6 +26,7 @@ const dictionaries: Record<TranslatedLanguage, Record<string, string>> = {
     ...libDictionaries["ja-JP"],
     ...providerDictionaries["ja-JP"],
     ...imageDictionaries["ja-JP"],
+    ...extensionDictionaries["ja-JP"],
   },
   "ko-KR": {
     ...baseDictionaries["ko-KR"],
@@ -32,6 +35,7 @@ const dictionaries: Record<TranslatedLanguage, Record<string, string>> = {
     ...libDictionaries["ko-KR"],
     ...providerDictionaries["ko-KR"],
     ...imageDictionaries["ko-KR"],
+    ...extensionDictionaries["ko-KR"],
   },
 };
 

@@ -192,3 +192,32 @@ pub fn git_file_diff(
     let label = project.name.clone();
     crate::git::file_diff(&root, &clean, &label)
 }
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitCommitInput {
+    pub project_id: String,
+    pub message: String,
+    #[serde(default)]
+    pub paths: Vec<String>,
+}
+
+#[tauri::command]
+pub fn git_commit(
+    state: State<'_, AppState>,
+    input: GitCommitInput,
+) -> AppResult<String> {
+    let (_, root) = project_root(&state, &input.project_id)?;
+    crate::git::commit(&root, &input.message, &input.paths)
+}
+
+#[tauri::command]
+pub fn git_restore_file(
+    state: State<'_, AppState>,
+    project_id: String,
+    path: String,
+) -> AppResult<GitStatus> {
+    let (_, root) = project_root(&state, &project_id)?;
+    crate::git::restore_file(&root, &path)?;
+    Ok(crate::git::status(&root))
+}

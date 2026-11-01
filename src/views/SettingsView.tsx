@@ -1,6 +1,8 @@
 import {
   FolderOpen,
+  GitBranch,
   KeyRound,
+  RefreshCcw,
   Save,
   ShieldCheck,
   TerminalSquare,
@@ -17,6 +19,7 @@ import {
   Field,
   Input,
   Select,
+  Switch,
 } from "../components/ui";
 import { TitlebarDrag } from "../components/WindowControls";
 
@@ -33,17 +36,17 @@ const CHAT_ROUTES: {
   {
     key: "agentPlan",
     label: "Agent 规划",
-    description: "用于任务规划（当前执行器使用 Agent 执行模型）",
+    description: "planner 子代理进行方案比较与任务拆解时使用的模型",
   },
   {
     key: "agentExecute",
     label: "Agent 执行",
-    description: "Agent Runtime 调用工具与执行任务使用的模型",
+    description: "Agent Runtime 主执行、工具调用与 researcher 子代理使用的模型",
   },
   {
     key: "review",
     label: "代码审查",
-    description: "审查 Diff 与结果时使用的模型",
+    description: "手动/自动审查与 reviewer 子代理使用的独立模型",
   },
   {
     key: "vision",
@@ -396,9 +399,160 @@ export function SettingsView() {
                 {routeRows("chat")}
                 <div className="divider" />
                 {routeRows("image")}
-                <Button size="sm" onClick={() => setView("providers")}>
-                  打开供应商管理
-                </Button>
+                <div className="row" style={{ gap: 8 }}>
+                  <Button size="sm" onClick={() => setView("providers")}>
+                    打开供应商管理
+                  </Button>
+                  <Button size="sm" onClick={() => setView("extensions")}>
+                    打开扩展与工具注册表
+                  </Button>
+                </div>
+              </div>
+            </section>
+
+            <section className="settings-section">
+              <div className="form-section-head">
+                <RefreshCcw size={11} /> 故障恢复
+              </div>
+              <div className="body">
+                <div className="setting-row">
+                  <div className="copy">
+                    <div className="title">自动重试</div>
+                    <div className="desc">
+                      遇到网络中断、429 或 5xx 时自动重试。只在尚未输出任何文本前重试，
+                      不会重复生成或重复计费已成功的内容。
+                    </div>
+                  </div>
+                  <div className="control">
+                    <Select
+                      value={String(settings.recovery.maxRetries)}
+                      onChange={(event) =>
+                        updateSettings({
+                          recovery: {
+                            ...settings.recovery,
+                            maxRetries: Number(event.target.value),
+                          },
+                        })
+                      }
+                    >
+                      <option value="0">不重试</option>
+                      <option value="1">重试 1 次</option>
+                      <option value="2">重试 2 次</option>
+                      <option value="3">重试 3 次</option>
+                      <option value="4">重试 4 次</option>
+                      <option value="5">重试 5 次</option>
+                    </Select>
+                  </div>
+                </div>
+                <div className="setting-row">
+                  <div className="copy">
+                    <div className="title">退避时间</div>
+                    <div className="desc">
+                      首次重试前的等待时间，之后按指数增长并限制在 15 秒内。
+                    </div>
+                  </div>
+                  <div className="control">
+                    <Input
+                      type="number"
+                      min={100}
+                      max={10000}
+                      step={100}
+                      value={settings.recovery.backoffMs}
+                      onChange={(event) =>
+                        updateSettings({
+                          recovery: {
+                            ...settings.recovery,
+                            backoffMs:
+                              Number(event.target.value) ||
+                              settings.recovery.backoffMs,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="divider" />
+                <div className="setting-row">
+                  <div className="copy">
+                    <div className="title">降级供应商</div>
+                    <div className="desc">
+                      主供应商重试仍失败且没有输出内容时，切换到该供应商完成当前任务。
+                      留空表示不降级，不会在未经配置的情况下产生额外费用。
+                    </div>
+                  </div>
+                  <div className="control" style={{ width: 300 }}>
+                    <Select
+                      value={settings.recovery.fallbackProviderId}
+                      onChange={(event) => {
+                        const next = chatProviders.find(
+                          (provider) => provider.id === event.target.value,
+                        );
+                        updateSettings({
+                          recovery: {
+                            ...settings.recovery,
+                            fallbackProviderId: event.target.value,
+                            fallbackModel:
+                              next?.defaultChatModel ??
+                              next?.models[0]?.id ??
+                              "",
+                          },
+                        });
+                      }}
+                    >
+                      <option value="">不启用降级</option>
+                      {chatProviders.map((provider) => (
+                        <option value={provider.id} key={provider.id}>
+                          {provider.name}
+                          {provider.enabled ? "" : "（已禁用）"}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
+                {settings.recovery.fallbackProviderId ? (
+                  <div className="setting-row">
+                    <div className="copy">
+                      <div className="title">降级模型</div>
+                      <div className="desc">
+                        留空时使用降级供应商的默认聊天模型。
+                      </div>
+                    </div>
+                    <div className="control" style={{ width: 300 }}>
+                      <Input
+                        className="mono"
+                        list="fallback-models"
+                        value={settings.recovery.fallbackModel}
+                        onChange={(event) =>
+                          updateSettings({
+                            recovery: {
+                              ...settings.recovery,
+                              fallbackModel: event.target.value,
+                            },
+                          })
+                        }
+                        placeholder="model id"
+                      />
+                      <datalist id="fallback-models">
+                        {providerFor(
+                          {
+                            providerId: settings.recovery.fallbackProviderId,
+                            model: settings.recovery.fallbackModel,
+                          },
+                          "chat",
+                        )?.models.map((model) => (
+                          <option key={model.id} value={model.id}>
+                            {model.name}
+                          </option>
+                        ))}
+                      </datalist>
+                    </div>
+                  </div>
+                ) : null}
+                <div className="field-hint">
+                  重试只针对瞬时错误；认证失败、参数错误和模型不存在不会盲目重试。
+                  若主供应商已经输出部分文本后中断，任务会保留已有输出并报告错误，
+                  不会静默重发导致内容重复。
+                </div>
               </div>
             </section>
 
@@ -439,6 +593,43 @@ export function SettingsView() {
                 <div className="field-hint">
                   无论开关状态，路径越界、UNC 网络路径、注册表、提权、格式化与下载执行等
                   高风险命令都在权限策略中被硬拒绝。
+                </div>
+                <div className="divider" />
+                <div className="setting-row">
+                  <div className="copy">
+                    <div className="title inline-flex">
+                      <ShieldCheck size={12} /> 独立自动审查
+                    </div>
+                    <div className="desc">
+                      任务完成且存在文件变更后，使用“代码审查”路由的独立模型再检查一遍，
+                      结果会作为一条新回复写入会话。会增加一次模型调用费用，默认关闭。
+                    </div>
+                  </div>
+                  <div className="control">
+                    <Switch
+                      checked={settings.autoReview}
+                      onChange={(autoReview) => updateSettings({ autoReview })}
+                    />
+                  </div>
+                </div>
+                <div className="setting-row">
+                  <div className="copy">
+                    <div className="title inline-flex">
+                      <GitBranch size={12} /> Git 分支隔离
+                    </div>
+                    <div className="desc">
+                      每个 Agent 任务在 Git 仓库中自动创建并切换到
+                      basalt/任务ID 分支，避免影响当前工作分支。同一项目的任务仍会串行执行。
+                    </div>
+                  </div>
+                  <div className="control">
+                    <Switch
+                      checked={settings.agentBranchIsolation}
+                      onChange={(agentBranchIsolation) =>
+                        updateSettings({ agentBranchIsolation })
+                      }
+                    />
+                  </div>
                 </div>
               </div>
             </section>
