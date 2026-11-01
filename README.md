@@ -18,6 +18,9 @@ GitHub：<https://github.com/zakolinxi/basalt-workbench>
   Image Provider 三层解耦。模板内置当前主力模型的上下文、视觉与工具预设，并支持
   统一选择思考强度（off / minimal / low / medium / high / xhigh / max / ultra），
   按协议自动映射。
+- **模型接口自动选择**：首次调用后探测同一供应商可用的 Chat / Responses 端点，
+  按实测延迟与接口库的缓存/工具偏好选型并持久化；模型卡片可手动重新检测，
+  后续聊天、Agent、审查与子代理自动使用选定接口。
 - **Agent 编程闭环**：目标 → 计划 → 工具调用 → 审批 → 文件修改 → Diff → 终端测试 →
   失败修复 → 报告。内置联网搜索、网页读取与只读子代理；所有展示都来自真实工具事件，
   不使用伪造进度。工具调用按批次合并为默认折叠的执行摘要行；主 Agent 与子代理
@@ -58,9 +61,9 @@ npm run tauri build
 
 本机已验证产物（见 `release/`）：
 
-- `release/Basalt.exe` — 免安装 EXE（20.62 MiB）
-- `release/Basalt_0.1.16_x64-setup.exe` — NSIS 安装包（7.61 MiB）
-- `release/Basalt-0.1.16-x64-portable.zip` — 便携压缩包（9.19 MiB）
+- `release/Basalt.exe` — 免安装 EXE（20.73 MiB）
+- `release/Basalt_0.1.17_x64-setup.exe` — NSIS 安装包（7.64 MiB）
+- `release/Basalt-0.1.17-x64-portable.zip` — 便携压缩包（9.23 MiB）
 - `release/SHA256SUMS.txt` — 校验和
 
 原始构建位置：`src-tauri/target/release/basalt.exe`、
@@ -114,6 +117,7 @@ docs/                        架构、设计、安全、测试与资源记录
 
 - [模块架构与协议适配](docs/ARCHITECTURE.md)
 - [供应商接入指南](docs/PROVIDERS.md)
+- [模型接口自动选择](docs/MODEL_ROUTING.md)
 - [图像生成与编辑](docs/IMAGES.md)
 - [设计系统](docs/DESIGN.md)
 - [安全与权限模型](docs/SECURITY.md)

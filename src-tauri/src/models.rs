@@ -371,6 +371,30 @@ pub struct ContextUsage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ModelEndpoint {
+    pub provider_id: String,
+    pub model: String,
+    pub protocol: String,
+    pub latency_ms: Option<u64>,
+    pub checked_at: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelEndpointView {
+    pub model: String,
+    pub protocol: String,
+    pub latency_ms: Option<u64>,
+    pub checked_at: String,
+    pub recommended_protocol: Option<String>,
+    pub cost_tier: Option<String>,
+    pub speed: Option<String>,
+    pub note: Option<String>,
+    pub source: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ImageFile {
     pub path: String,
     pub mime: String,
@@ -485,7 +509,7 @@ pub struct Settings {
 }
 
 pub fn default_user_agent() -> String {
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.16".into()
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.17".into()
 }
 
 pub const REASONING_EFFORTS: [&str; 8] = [

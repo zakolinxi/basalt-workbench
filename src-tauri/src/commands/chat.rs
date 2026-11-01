@@ -16,7 +16,7 @@ use crate::models::{
     Attachment, ChatEvent, ContextUsage, Message, Session, CAP_UNSUPPORTED, CAP_VERIFIED,
 };
 use crate::providers::{
-    capabilities_for, chat_adapter, load_chat_runtime, mark_capabilities, ChatMessage, ChatRequest,
+    capabilities_for, chat_adapter_for, load_chat_runtime, mark_capabilities, ChatMessage, ChatRequest,
     ProviderEvent,
 };
 use crate::state::AppState;
@@ -503,7 +503,7 @@ async fn chat_send_inner(
     }
 
     let assistant_message_id = Uuid::new_v4().to_string();
-    let adapter = chat_adapter(&rt.provider.protocol)?;
+    let adapter = chat_adapter_for(state, &rt, &model)?;
     let client = state.http.clone();
     let rt_for = rt.clone();
     let request = ChatRequest {
@@ -589,6 +589,11 @@ async fn chat_send_inner(
                 updates.push(("vision", CAP_VERIFIED));
             }
             let _ = mark_capabilities(state, &input.provider_id, &model, &updates);
+            crate::providers::optimize::schedule_model_optimization(
+                state,
+                &input.provider_id,
+                &model,
+            );
             Ok(message)
         }
         Err(err) if err.is_cancelled() => {

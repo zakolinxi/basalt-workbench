@@ -8,7 +8,7 @@ use tokio_util::sync::CancellationToken;
 use crate::error::{AppError, AppResult};
 use crate::models::{Task, CAP_UNSUPPORTED};
 use crate::providers::{
-    capabilities_for, chat_adapter, load_chat_runtime, ChatMessage, ChatRequest, ProviderEvent,
+    capabilities_for, chat_adapter_for, load_chat_runtime, ChatMessage, ChatRequest, ProviderEvent,
     ProviderToolCall,
 };
 use crate::state::AppState;
@@ -115,7 +115,7 @@ pub async fn run(
             temperature: None,
             reasoning_effort: task.reasoning_effort.clone(),
         };
-        let adapter = chat_adapter(&rt.provider.protocol)?;
+        let adapter = chat_adapter_for(state, &rt, &model)?;
         let client = state.http.clone();
         let rt_for = rt.clone();
         let token = cancel.clone();

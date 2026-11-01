@@ -19,7 +19,7 @@ use crate::models::{
     TASK_QUEUED, TASK_RUNNING, TASK_WAITING,
 };
 use crate::providers::{
-    chat_adapter, load_chat_runtime, mark_capabilities, ChatMessage, ChatRequest, ProviderEvent,
+    chat_adapter_for, load_chat_runtime, mark_capabilities, ChatMessage, ChatRequest, ProviderEvent,
 };
 use crate::state::AppState;
 
@@ -358,7 +358,7 @@ pub async fn review_task(state: State<'_, AppState>, task_id: String) -> AppResu
         temperature: None,
         reasoning_effort: None,
     };
-    let adapter = chat_adapter(&rt.provider.protocol)?;
+    let adapter = chat_adapter_for(state.inner(), &rt, &model)?;
     let client = state.http.clone();
     let token = CancellationToken::new();
     let (tx, mut rx) = unbounded_channel::<ProviderEvent>();

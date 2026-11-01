@@ -257,6 +257,18 @@ export interface ContextUsage {
   limit?: number | null;
 }
 
+export interface ModelEndpointView {
+  model: string;
+  protocol: string;
+  latencyMs?: number | null;
+  checkedAt: string;
+  recommendedProtocol?: string | null;
+  costTier?: string | null;
+  speed?: string | null;
+  note?: string | null;
+  source?: string | null;
+}
+
 export interface Route {
   providerId: string;
   model: string;

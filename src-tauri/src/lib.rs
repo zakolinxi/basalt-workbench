@@ -8,6 +8,7 @@ pub mod files;
 pub mod git;
 pub mod logging;
 pub mod messaging;
+pub mod model_interfaces;
 pub mod models;
 pub mod policy;
 pub mod providers;
@@ -45,6 +46,8 @@ pub fn run() {
             commands::providers::provider_delete,
             commands::providers::provider_duplicate,
             commands::providers::provider_test,
+            commands::providers::provider_model_endpoints,
+            commands::providers::provider_detect_model,
             commands::providers::provider_set_enabled,
             commands::providers::provider_set_capability,
             commands::providers::provider_models_from_discovered,

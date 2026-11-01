@@ -26,7 +26,7 @@ use crate::models::{
 };
 use crate::policy::{evaluate, PolicyDecision};
 use crate::providers::{
-    capabilities_for, chat_adapter, load_chat_runtime, ChatMessage, ChatRequest, ProviderEvent,
+    capabilities_for, chat_adapter_for, load_chat_runtime, ChatMessage, ChatRequest, ProviderEvent,
     ProviderToolCall,
 };
 use crate::state::AppState;
@@ -240,7 +240,7 @@ async fn run_task(
                 task.reasoning_effort.clone()
             },
         };
-        let adapter = chat_adapter(&rt.provider.protocol)?;
+        let adapter = chat_adapter_for(state, &rt, &model)?;
         let client = state.http.clone();
         let rt_for = rt.clone();
         let req_for = request;
@@ -340,6 +340,11 @@ async fn run_task(
             &task.provider_id,
             &model,
             &updates,
+        );
+        crate::providers::optimize::schedule_model_optimization(
+            state,
+            &task.provider_id,
+            &model,
         );
 
         let mut assistant_calls = Vec::new();

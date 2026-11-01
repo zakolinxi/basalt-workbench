@@ -6,6 +6,7 @@ pub mod images;
 pub mod ollama;
 pub mod openai_chat;
 pub mod openai_responses;
+pub mod optimize;
 pub mod sse;
 
 use std::path::PathBuf;
@@ -242,6 +243,28 @@ pub fn chat_adapter(protocol: &str) -> AppResult<Box<dyn ChatAdapter>> {
         "ollama" => Ok(Box::new(ollama::OllamaAdapter)),
         other => Err(AppError::msg(format!("不支持的对话协议：{other}"))),
     }
+}
+
+fn protocol_compatible(configured: &str, candidate: &str) -> bool {
+    configured == candidate
+        || (matches!(configured, "openai_chat" | "openai_responses")
+            && matches!(candidate, "openai_chat" | "openai_responses"))
+}
+
+pub fn chat_adapter_for(
+    state: &AppState,
+    rt: &ProviderRuntime,
+    model: &str,
+) -> AppResult<Box<dyn ChatAdapter>> {
+    let endpoint = {
+        let conn = state.db();
+        crate::db::get_model_endpoint(&conn, &rt.provider.id, model)
+    };
+    let protocol = endpoint
+        .map(|endpoint| endpoint.protocol)
+        .filter(|protocol| protocol_compatible(&rt.provider.protocol, protocol))
+        .unwrap_or_else(|| rt.provider.protocol.clone());
+    chat_adapter(&protocol)
 }
 
 pub fn image_adapter(protocol: &str) -> AppResult<Box<dyn ImageAdapter>> {

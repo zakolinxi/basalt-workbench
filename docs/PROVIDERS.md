@@ -41,6 +41,17 @@ Base URL 可以只填域名（例如 `api.deepseek.com`）。输入框失焦或�
 - 粘贴完整端点（`/chat/completions`、`/responses`、`/models`、`/images/generations` 等）
   会先裁掉端点，再按协议补齐版本路径。
 
+## 自动接口选择
+
+保存模型后，第一次真实调用成功会触发后台接口探测：同一供应商内的
+OpenAI Chat / Responses 候选会各发送一次极小的非流式请求，按实测延迟选型；
+若内置接口库推荐的协议在最快结果 +60ms 内，则优先使用推荐协议。
+结果写入 `model_endpoints`，后续聊天、Agent、代码审查与子代理自动使用该协议。
+
+模型卡片会显示“自动接口”结果（协议、延迟、成本档/速度档），并可点击
+「检测接口」强制重新检测。只会在当前供应商/base URL/API Key 内切换协议，
+不会擅自使用其他供应商账户。详见 [MODEL_ROUTING.md](MODEL_ROUTING.md)。
+
 ## 能力矩阵
 
 模型以卡片呈现：折叠时显示名称、模型 ID、上下文窗口、来源与能力摘要；展开后编辑
@@ -127,6 +138,6 @@ Ollama、OpenAI 图像、Gemini 图像、OpenAI 兼容图像、自建图像网�
 - 自定义请求头会合并，但禁止覆盖 Authorization / x-api-key 等核心认证头。
 - 自定义参数合并到请求体，保护 model、messages、tools、stream 等核心字段。
 - 全局请求 User-Agent 可在「设置 → 安全与数据」中修改；供应商自定义 `User-Agent`
-  请求头优先。默认使用 Windows Chrome 标识并附加 `Basalt/0.1.16`。
+  请求头优先。默认使用 Windows Chrome 标识并附加 `Basalt/0.1.17`。
 - 每个请求有连接与总超时；对话支持取消。
 - 错误按 401/403/404/429/5xx 分类为可读提示，不记录密钥。

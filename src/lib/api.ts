@@ -10,6 +10,7 @@ import type {
   ImageCapabilities,
   ImageGeneration,
   Message,
+  ModelEndpointView,
   Project,
   Provider,
   ProviderInput,
@@ -48,6 +49,10 @@ export const api = {
     invoke<Provider>("provider_duplicate", { providerId }),
   providerTest: (providerId: string) =>
     invoke<ProviderTestResult>("provider_test", { providerId }),
+  providerEndpoints: (providerId: string) =>
+    invoke<ModelEndpointView[]>("provider_model_endpoints", { providerId }),
+  providerDetectModel: (providerId: string, model: string) =>
+    invoke<ModelEndpointView>("provider_detect_model", { providerId, model }),
   providerSetEnabled: (providerId: string, enabled: boolean) =>
     invoke<Provider>("provider_set_enabled", { providerId, enabled }),
   providerSetCapability: (

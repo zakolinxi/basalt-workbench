@@ -25,6 +25,7 @@ import { normalizeBaseUrl } from "../lib/baseUrl";
 import type {
   CapState,
   ModelCapabilities,
+  ModelEndpointView,
   Provider,
   ProviderInput,
   ProviderModel,
@@ -128,6 +129,18 @@ const SOURCE_LABELS: Record<string, string> = {
   manual: "手动",
 };
 
+const COST_TIER_LABELS: Record<string, string> = {
+  low: "低",
+  medium: "中",
+  high: "高",
+};
+
+const SPEED_LABELS: Record<string, string> = {
+  fast: "快",
+  balanced: "均衡",
+  slow: "慢",
+};
+
 function trimNumber(value: number): string {
   return Number(value.toFixed(2)).toString();
 }
@@ -228,10 +241,15 @@ export function ProvidersView() {
   const [addingModel, setAddingModel] = useState(false);
   const [baseUrlNote, setBaseUrlNote] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Provider | null>(null);
+  const [endpoints, setEndpoints] = useState<ModelEndpointView[]>([]);
+  const [detectingModel, setDetectingModel] = useState<string | null>(null);
 
   const selected = providers.find((item) => item.id === selectedId) ?? null;
   const templates = providers.filter((provider) => provider.isTemplate);
   const configured = providers.filter((provider) => !provider.isTemplate);
+  const endpointByModel = new Map(
+    endpoints.map((endpoint) => [endpoint.model, endpoint]),
+  );
 
   const loadProvider = (provider: Provider) => {
     setSelectedId(provider.id);
@@ -258,6 +276,45 @@ export function ProvidersView() {
       configured.find((provider) => provider.enabled) ?? configured[0] ?? null;
     if (preferred) loadProvider(preferred);
   }, [configured, selectedId]);
+
+  const loadEndpoints = async (providerId: string) => {
+    try {
+      setEndpoints(await api.providerEndpoints(providerId));
+    } catch {
+      setEndpoints([]);
+    }
+  };
+
+  useEffect(() => {
+    if (!form?.id) {
+      setEndpoints([]);
+      return;
+    }
+    void loadEndpoints(form.id);
+  }, [form?.id]);
+
+  const detectEndpoint = async (modelId: string) => {
+    if (!form?.id) return;
+    setDetectingModel(modelId);
+    try {
+      const endpoint = await api.providerDetectModel(form.id, modelId);
+      setEndpoints((current) => [
+        ...current.filter((item) => item.model !== endpoint.model),
+        endpoint,
+      ]);
+      notify(
+        "success",
+        "接口检测完成",
+        `${providerProtocolLabel(endpoint.protocol)}${
+          endpoint.latencyMs ? ` · ${endpoint.latencyMs}ms` : ""
+        }`,
+      );
+    } catch (error) {
+      notify("error", "接口检测失败", errorMessage(error));
+    } finally {
+      setDetectingModel(null);
+    }
+  };
 
   const startNew = () => {
     setSelectedId("new");
@@ -369,6 +426,7 @@ export function ProvidersView() {
       setBaseUrlNote(null);
       setHeadersText(JSON.stringify(saved.headers ?? {}, null, 2));
       setParamsText(JSON.stringify(saved.params ?? {}, null, 2));
+      void loadEndpoints(saved.id);
       if (!silent) notify("success", "供应商配置已保存", saved.name);
       return saved;
     } catch (error) {
@@ -394,6 +452,7 @@ export function ProvidersView() {
         setExpandedModel(null);
         setAddingModel(false);
         await refreshProviders();
+        void loadEndpoints(saved.id);
       }
       notify(
         result.ok ? "success" : "error",
@@ -588,7 +647,12 @@ export function ProvidersView() {
           </div>
           <TitlebarDrag />
           <div className="page-head-actions">
-            <Button onClick={() => void refreshProviders()}>
+            <Button
+              onClick={() => {
+                void refreshProviders();
+                if (form?.id) void loadEndpoints(form.id);
+              }}
+            >
               <RefreshCw size={12} /> 刷新
             </Button>
             <Button variant="primary" onClick={startNew}>
@@ -1063,6 +1127,13 @@ export function ProvidersView() {
                             }
                             onDefault={(key) => toggleDefaultModel(index, key)}
                             onRemove={() => removeModel(index)}
+                            endpoint={endpointByModel.get(model.id)}
+                            detecting={detectingModel === model.id}
+                            onDetect={
+                              form.id
+                                ? () => void detectEndpoint(model.id)
+                                : undefined
+                            }
                           />
                         ))}
                       </div>
@@ -1174,6 +1245,9 @@ function ModelCard({
   onBulkCaps,
   onDefault,
   onRemove,
+  endpoint,
+  detecting,
+  onDetect,
 }: {
   model: ProviderModel;
   category: "chat" | "image";
@@ -1187,6 +1261,9 @@ function ModelCard({
   onBulkCaps: (value: CapState) => void;
   onDefault: (key: DefaultModelKey) => void;
   onRemove: () => void;
+  endpoint?: ModelEndpointView;
+  detecting?: boolean;
+  onDetect?: () => void;
 }) {
   const allowed = CAPS_BY_CATEGORY[category];
   const groups = CAP_GROUPS.map((group) => ({
@@ -1226,6 +1303,15 @@ function ModelCard({
               </span>
               <span className="model-card-dot" />
               <span>{SOURCE_LABELS[model.source] ?? model.source}</span>
+              {endpoint ? (
+                <>
+                  <span className="model-card-dot" />
+                  <span className="model-card-route">
+                    {providerProtocolLabel(endpoint.protocol)}
+                    {endpoint.latencyMs ? ` · ${endpoint.latencyMs}ms` : ""}
+                  </span>
+                </>
+              ) : null}
             </span>
           </span>
           <span className="model-card-chips">
@@ -1316,6 +1402,55 @@ function ModelCard({
             <span className="field-hint">
               用于计算上下文占用和长上下文能力；留空表示未知。
             </span>
+          </div>
+
+          <div className="model-api-panel">
+            <div className="model-api-copy">
+              <span className="field-label">自动接口</span>
+              <span className="field-hint">
+                首次调用后检测可用端点；同供应商下优先低延迟与缓存友好协议。
+              </span>
+              <div
+                className="model-api-meta"
+                title={endpoint?.note ?? endpoint?.source ?? undefined}
+              >
+                {endpoint ? (
+                  <>
+                    <Badge tone="ok">
+                      {providerProtocolLabel(endpoint.protocol)}
+                    </Badge>
+                    {endpoint.latencyMs ? (
+                      <span>{endpoint.latencyMs}ms</span>
+                    ) : null}
+                    {endpoint.costTier ? (
+                      <span>
+                        成本{" "}
+                        {COST_TIER_LABELS[endpoint.costTier] ??
+                          endpoint.costTier}
+                      </span>
+                    ) : null}
+                    {endpoint.speed ? (
+                      <span>
+                        速度 {SPEED_LABELS[endpoint.speed] ?? endpoint.speed}
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  <span>等待首次调用或手动检测</span>
+                )}
+              </div>
+            </div>
+            {onDetect ? (
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={onDetect}
+                loading={detecting}
+                title="发送一次极小的探测请求，检测可用接口"
+              >
+                <RefreshCw size={11} /> 检测接口
+              </Button>
+            ) : null}
           </div>
 
           <div className="cap-panel">

@@ -132,6 +132,14 @@ CREATE TABLE IF NOT EXISTS tool_calls (
   completed_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_tool_calls_task ON tool_calls(task_id, created_at);
+CREATE TABLE IF NOT EXISTS model_endpoints (
+  provider_id TEXT NOT NULL,
+  model TEXT NOT NULL,
+  protocol TEXT NOT NULL,
+  latency_ms INTEGER,
+  checked_at TEXT NOT NULL,
+  PRIMARY KEY(provider_id, model)
+);
 CREATE TABLE IF NOT EXISTS changes (
   id TEXT PRIMARY KEY,
   task_id TEXT NOT NULL,
@@ -407,6 +415,71 @@ pub fn set_setting_raw(conn: &Connection, key: &str, value: &str) -> AppResult<(
     conn.execute(
         "INSERT OR REPLACE INTO settings(key, value) VALUES(?1, ?2)",
         params![key, value],
+    )?;
+    Ok(())
+}
+
+pub fn get_model_endpoint(
+    conn: &Connection,
+    provider_id: &str,
+    model: &str,
+) -> Option<ModelEndpoint> {
+    conn.query_row(
+        "SELECT provider_id, model, protocol, latency_ms, checked_at
+         FROM model_endpoints WHERE provider_id = ?1 AND model = ?2",
+        params![provider_id, model],
+        |row| {
+            Ok(ModelEndpoint {
+                provider_id: row.get(0)?,
+                model: row.get(1)?,
+                protocol: row.get(2)?,
+                latency_ms: row.get::<_, Option<i64>>(3)?.map(|value| value as u64),
+                checked_at: row.get(4)?,
+            })
+        },
+    )
+    .ok()
+}
+
+pub fn list_model_endpoints(
+    conn: &Connection,
+    provider_id: &str,
+) -> AppResult<Vec<ModelEndpoint>> {
+    let mut stmt = conn.prepare(
+        "SELECT provider_id, model, protocol, latency_ms, checked_at
+         FROM model_endpoints WHERE provider_id = ?1 ORDER BY model ASC",
+    )?;
+    let rows = stmt.query_map([provider_id], |row| {
+        Ok(ModelEndpoint {
+            provider_id: row.get(0)?,
+            model: row.get(1)?,
+            protocol: row.get(2)?,
+            latency_ms: row.get::<_, Option<i64>>(3)?.map(|value| value as u64),
+            checked_at: row.get(4)?,
+        })
+    })?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+pub fn save_model_endpoint(conn: &Connection, endpoint: &ModelEndpoint) -> AppResult<()> {
+    conn.execute(
+        "INSERT OR REPLACE INTO model_endpoints(provider_id, model, protocol, latency_ms, checked_at)
+         VALUES(?1, ?2, ?3, ?4, ?5)",
+        params![
+            endpoint.provider_id,
+            endpoint.model,
+            endpoint.protocol,
+            endpoint.latency_ms.map(|value| value as i64),
+            endpoint.checked_at
+        ],
+    )?;
+    Ok(())
+}
+
+pub fn clear_model_endpoints(conn: &Connection, provider_id: &str) -> AppResult<()> {
+    conn.execute(
+        "DELETE FROM model_endpoints WHERE provider_id = ?1",
+        [provider_id],
     )?;
     Ok(())
 }

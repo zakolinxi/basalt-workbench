@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::db::{get_provider_row, list_provider_rows, now};
 use crate::error::{redact, AppError, AppResult};
 use crate::models::{
-    DiscoveredModel, ModelCapabilities, Provider, ProviderInput, ProviderModel,
+    DiscoveredModel, ModelCapabilities, ModelEndpointView, Provider, ProviderInput, ProviderModel,
     ProviderTestResult, CAP_FAILED, CAP_UNAVAILABLE, CAP_UNSUPPORTED, CAP_UNVERIFIED, CAP_VERIFIED,
 };
 use crate::providers::{
@@ -259,6 +259,22 @@ fn save_provider(state: &AppState, input: ProviderInput) -> AppResult<Provider> 
             secrets::set_api_key(&id, key)?;
         }
     }
+    if let Some(previous) = &updating {
+        if previous.base_url != input.base_url || previous.protocol != input.protocol {
+            crate::db::clear_model_endpoints(&conn, &id)?;
+        }
+    }
+    let retained: std::collections::HashSet<&str> =
+        input.models.iter().map(|model| model.id.as_str()).collect();
+    let known = crate::db::list_model_endpoints(&conn, &id)?;
+    for endpoint in known {
+        if !retained.contains(endpoint.model.as_str()) {
+            conn.execute(
+                "DELETE FROM model_endpoints WHERE provider_id = ?1 AND model = ?2",
+                params![id, endpoint.model],
+            )?;
+        }
+    }
     let provider = get_provider_row(&conn, &id)?;
     Ok(attach_key(provider))
 }
@@ -305,6 +321,7 @@ pub fn provider_delete(state: State<'_, AppState>, provider_id: String) -> AppRe
         let conn = state.db();
         get_provider_row(&conn, &provider_id)?;
         conn.execute("DELETE FROM providers WHERE id = ?1", [&provider_id])?;
+        crate::db::clear_model_endpoints(&conn, &provider_id)?;
     }
     let _ = secrets::delete_api_key(&provider_id);
     {
@@ -495,6 +512,30 @@ pub async fn provider_test(
             })
         }
     }
+}
+
+#[tauri::command]
+pub fn provider_model_endpoints(
+    state: State<'_, AppState>,
+    provider_id: String,
+) -> AppResult<Vec<ModelEndpointView>> {
+    let conn = state.db();
+    get_provider_row(&conn, &provider_id)?;
+    Ok(crate::db::list_model_endpoints(&conn, &provider_id)?
+        .into_iter()
+        .map(crate::providers::optimize::endpoint_view)
+        .collect())
+}
+
+#[tauri::command]
+pub async fn provider_detect_model(
+    state: State<'_, AppState>,
+    provider_id: String,
+    model: String,
+) -> AppResult<ModelEndpointView> {
+    let endpoint =
+        crate::providers::optimize::optimize_model(&state, &provider_id, &model, true).await?;
+    Ok(crate::providers::optimize::endpoint_view(endpoint))
 }
 
 #[tauri::command]

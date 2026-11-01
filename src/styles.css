@@ -3974,6 +3974,13 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.model-card-route {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--info);
+}
 .model-card-dot {
   width: 2px;
   height: 2px;
@@ -4032,6 +4039,34 @@ a {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+.model-api-panel {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-0);
+}
+.model-api-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.model-api-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--fg-3);
+}
+.model-api-meta .badge {
+  font-size: 8.5px;
 }
 .context-control {
   display: flex;
