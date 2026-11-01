@@ -1,12 +1,14 @@
-BASALT 0.1.18 — Windows x64
+BASALT 0.1.19 — Windows x64
 ===========================
 
 Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）。
 
 本次更新
 --------
-- 输入框状态栏新增缓存用量条：按供应商 + 模型累计输入 tokens 与缓存命中率，
-  使用数据库图标展示，悬停可查看缓存命中量、输出 tokens 与请求次数。
+- 缓存用量条改为高亮样式：绿色描边与浅色底、绿色数据库图标、加粗命中率，
+  在深色和浅色主题下都更醒目。
+- 输入框状态栏缓存条：按供应商 + 模型累计输入 tokens 与缓存命中率，
+  悬停可查看缓存命中量、输出 tokens 与请求次数。
 - 统一解析各协议缓存字段：OpenAI Chat（prompt_tokens_details.cached_tokens、
   DeepSeek prompt_cache_hit_tokens）、OpenAI Responses（input_tokens_details）、
   Anthropic（缓存读取 + 写入归一化）、Gemini（cachedContentTokenCount）。
@@ -22,7 +24,7 @@ Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）�
 
 两种方式
 --------
-1. 安装版：运行 Basalt_0.1.18_x64-setup.exe，按向导安装。
+1. 安装版：运行 Basalt_0.1.19_x64-setup.exe，按向导安装。
 2. 便携版：直接运行 Basalt.exe。便携版仍使用 %APPDATA%\com.basalt.workbench
    保存数据库、附件与设置。
 
