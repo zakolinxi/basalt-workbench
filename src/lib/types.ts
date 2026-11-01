@@ -137,6 +137,18 @@ export type TaskStatus =
   | "cancelled"
   | "interrupted";
 
+export interface QueuedMessage {
+  id: string;
+  sessionId: string;
+  text: string;
+  attachments: Attachment[];
+  mode: "chat" | "agent";
+  providerId: string;
+  model: string;
+  reasoningEffort?: ReasoningEffort;
+  createdAt: string;
+}
+
 export interface TaskStep {
   title: string;
   detail?: string | null;

@@ -144,8 +144,13 @@ export function Composer() {
   const settings = useAppStore((state) => state.settings);
   const activeChat = useAppStore((state) => state.activeChat);
   const imageChatBusy = useAppStore((state) => state.imageChatBusy);
+  const tasks = useAppStore((state) => state.tasks);
+  const activeTaskId = useAppStore((state) => state.activeTaskId);
+  const queuedMessages = useAppStore((state) => state.queuedMessages);
   const sendMessage = useAppStore((state) => state.sendMessage);
+  const queueMessage = useAppStore((state) => state.queueMessage);
   const cancelChat = useAppStore((state) => state.cancelChat);
+  const stopTask = useAppStore((state) => state.stopTask);
   const updateSessionModel = useAppStore((state) => state.updateSessionModel);
   const updateSessionReasoning = useAppStore(
     (state) => state.updateSessionReasoning,
@@ -218,16 +223,40 @@ export function Composer() {
   const modelInfo = provider?.models.find((item) => item.id === model.trim()) ?? null;
   const supportsReasoning =
     modelInfo?.capabilities.reasoning !== "unsupported";
-  const busy = Boolean(activeChat) || imageChatBusy;
+  const sessionActiveChat = Boolean(
+    activeChat && (!session || activeChat.sessionId === session.id),
+  );
+  const streamBusy = sessionActiveChat || imageChatBusy;
+  const activeTask =
+    tasks.find(
+      (item) =>
+        item.id === activeTaskId &&
+        (!session || item.sessionId === session.id),
+    ) ??
+    tasks.find(
+      (item) =>
+        item.sessionId === session?.id &&
+        ["queued", "running", "waitingApproval"].includes(item.status),
+    ) ??
+    null;
+  const taskBusy = Boolean(
+    activeTask &&
+      ["queued", "running", "waitingApproval"].includes(activeTask.status),
+  );
+  const aiBusy = streamBusy || taskBusy;
+  const canStop = sessionActiveChat || taskBusy;
+  const hasDraft = Boolean(text.trim() || attachments.length);
+  const sessionQueued = queuedMessages.some(
+    (item) => item.sessionId === session?.id,
+  );
+  const shouldQueue = aiBusy || sessionQueued;
   const isImageCommand = mode === "chat" && /^\/img\s+/i.test(text.trim());
   const approval = approvalMode(settings);
   const approvalInfo = approvalOption(approval);
   const reasoningInfo =
     REASONING_OPTIONS.find((option) => option.value === reasoning) ??
     REASONING_OPTIONS[3];
-  const stopVisible = Boolean(
-    activeChat && (!session || activeChat.sessionId === session.id),
-  );
+  const stopVisible = canStop && !hasDraft;
 
   useEffect(() => {
     const route =
@@ -374,6 +403,9 @@ export function Composer() {
         setPermissionOpen(false);
       }
       if (typeof detail.text === "string") setText(detail.text);
+      if (Array.isArray(detail.attachments)) {
+        setAttachments(detail.attachments as Attachment[]);
+      }
       requestAnimationFrame(() => textareaRef.current?.focus());
     };
     window.addEventListener("basalt:focus-composer", focusHandler);
@@ -500,7 +532,6 @@ export function Composer() {
   };
 
   const handleSend = () => {
-    if (busy) return;
     if (!text.trim() && attachments.length === 0) return;
     if (!project) {
       notify("warning", "请先打开项目");
@@ -521,16 +552,26 @@ export function Composer() {
     }
     const payloadText = text.trim();
     const payloadAttachments = attachments;
-    setText("");
-    setAttachments([]);
-    void sendMessage({
+    const payload = {
       text: payloadText,
       attachments: payloadAttachments,
       mode,
       providerId,
       model: model.trim(),
       reasoningEffort: supportsReasoning ? reasoning : undefined,
-    });
+    };
+    setText("");
+    setAttachments([]);
+    if (shouldQueue) {
+      void queueMessage(payload);
+    } else {
+      void sendMessage(payload);
+    }
+  };
+
+  const stopCurrent = () => {
+    if (sessionActiveChat) void cancelChat();
+    else if (activeTask) void stopTask(activeTask.id);
   };
 
   const toggleBranchMenu = async () => {
@@ -733,7 +774,7 @@ export function Composer() {
           <IconButton
             label="添加图片或文本附件"
             onClick={() => void pickAttachments()}
-            disabled={importing || busy}
+            disabled={importing}
           >
             {importing ? <span className="spinner" /> : <Paperclip size={15} />}
           </IconButton>
@@ -896,19 +937,30 @@ export function Composer() {
         <button
           className={clsx("send-btn", stopVisible && "stop")}
           onClick={() => {
-            if (stopVisible) void cancelChat();
+            if (stopVisible) stopCurrent();
             else handleSend();
           }}
           disabled={
             stopVisible
               ? false
-              : busy ||
-                (!text.trim() && attachments.length === 0) ||
+              : !hasDraft ||
                 (!isImageCommand && (!providerId || !model.trim())) ||
                 (mode === "agent" && modelInfo?.capabilities.tools === "unsupported")
           }
-          title={stopVisible ? "停止生成" : "发送"}
-          aria-label={stopVisible ? "停止生成" : "发送"}
+          title={
+            stopVisible
+              ? "停止生成"
+              : shouldQueue
+                ? "加入队列，本轮结束后发送"
+                : "发送"
+          }
+          aria-label={
+            stopVisible
+              ? "停止生成"
+              : shouldQueue
+                ? "加入队列，本轮结束后发送"
+                : "发送"
+          }
         >
           {imageChatBusy && !stopVisible ? (
             <span className="spinner" style={{ borderTopColor: "var(--accent-fg)" }} />

@@ -1,20 +1,23 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Check,
+  CornerDownLeft,
   FolderOpen,
   Image as ImageIcon,
   MessageSquarePlus,
+  Pencil,
   Plus,
   Server,
   Sparkles,
-  Square,
+  Trash2,
   X,
+  Zap,
 } from "lucide-react";
 import { useAppStore, currentProject, currentSession } from "../lib/store";
 import { api } from "../lib/api";
 import type { RunMetrics, TaskEvent } from "../lib/types";
-import { Button } from "./ui";
+import { Button, IconButton } from "./ui";
 import { MessageItem, StreamingItem } from "./MessageItem";
 import { TaskActivity, isTaskActivityEvent } from "./TaskActivity";
 import { Composer } from "./Composer";
@@ -71,13 +74,26 @@ export function ChatView() {
   const setView = useAppStore((state) => state.setView);
   const retryChat = useAppStore((state) => state.retryChat);
   const resolveApproval = useAppStore((state) => state.resolveApproval);
-  const stopTask = useAppStore((state) => state.stopTask);
   const resumeTask = useAppStore((state) => state.resumeTask);
   const tasks = useAppStore((state) => state.tasks);
+  const queuedMessages = useAppStore((state) => state.queuedMessages);
+  const removeQueuedMessage = useAppStore((state) => state.removeQueuedMessage);
+  const editQueuedMessage = useAppStore((state) => state.editQueuedMessage);
+  const interruptQueuedMessage = useAppStore(
+    (state) => state.interruptQueuedMessage,
+  );
   const task = tasks.find((item) => item.id === activeTaskId) ?? null;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
+  const queued = useMemo(
+    () =>
+      session
+        ? queuedMessages.filter((item) => item.sessionId === session.id)
+        : [],
+    [queuedMessages, session?.id],
+  );
   const [runMetrics, setRunMetrics] = useState<RunMetrics | null>(null);
 
   const currentStreams = useMemo(
@@ -196,19 +212,30 @@ export function ChatView() {
   ]);
 
   useEffect(() => {
+    stick.current = true;
+    setRunMetrics(null);
+  }, [session?.id]);
+
+  useEffect(() => {
+    if (lastMessage?.role === "user") stick.current = true;
+  }, [lastMessage?.id, lastMessage?.role]);
+
+  useLayoutEffect(() => {
     const element = scrollRef.current;
     if (!element || !stick.current) return;
-    const toBottom = () => {
-      element.scrollTop = element.scrollHeight;
-    };
-    toBottom();
-    const first = setTimeout(toBottom, 90);
-    const second = setTimeout(toBottom, 320);
-    return () => {
-      clearTimeout(first);
-      clearTimeout(second);
-    };
-  }, [messages.length, streamLength, eventCount, activeTaskId]);
+    element.scrollTop = element.scrollHeight;
+  }, [messages.length, streamLength, eventCount, activeTaskId, queued.length]);
+
+  useEffect(() => {
+    const element = scrollRef.current;
+    const content = contentRef.current;
+    if (!element || !content) return;
+    const observer = new ResizeObserver(() => {
+      if (stick.current) element.scrollTop = element.scrollHeight;
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [messages.length > 0 || currentStreams.length > 0 || Boolean(activeTaskId)]);
 
   const onScroll = () => {
     const element = scrollRef.current;
@@ -229,7 +256,7 @@ export function ChatView() {
     <div className="chat-col">
       <div className="chat-scroll" ref={scrollRef} onScroll={onScroll}>
         {hasContent ? (
-          <div className="messages">
+          <div className="messages" ref={contentRef}>
             {messages.map((message, index) => {
               const activity = activityByMessage.get(message.id);
               return (
@@ -373,13 +400,6 @@ export function ChatView() {
                   : "Agent 正在执行"}
             </span>
             <span className="run-status-spacer" />
-            <Button
-              size="xs"
-              variant="ghost"
-              onClick={() => void stopTask(task.id)}
-            >
-              <Square size={9} /> 停止
-            </Button>
           </div>
         </div>
       ) : null}
@@ -421,6 +441,45 @@ export function ChatView() {
               </div>
             ) : null}
           </div>
+        </div>
+      ) : null}
+
+      {queued.length > 0 ? (
+        <div className="queued-bar" aria-label="排队消息">
+          {queued.map((item, index) => (
+            <div className="queued-item" key={item.id}>
+              <CornerDownLeft size={12} className="queued-icon" />
+              <span className="queued-order">{index + 1}</span>
+              <span className="queued-text truncate">
+                {item.text || item.attachments[0]?.name || "附件消息"}
+              </span>
+              <span className="queued-mode">
+                {item.mode === "agent" ? "AGENT" : "CHAT"}
+              </span>
+              <button
+                type="button"
+                className="queued-action"
+                onClick={() => void interruptQueuedMessage(item.id)}
+                title="停止当前输出并立即发送"
+              >
+                <Zap size={10} /> 插话
+              </button>
+              <IconButton
+                label="编辑排队消息"
+                size="sm"
+                onClick={() => editQueuedMessage(item.id)}
+              >
+                <Pencil size={11} />
+              </IconButton>
+              <IconButton
+                label="删除排队消息"
+                size="sm"
+                onClick={() => removeQueuedMessage(item.id)}
+              >
+                <Trash2 size={11} />
+              </IconButton>
+            </div>
+          ))}
         </div>
       ) : null}
 

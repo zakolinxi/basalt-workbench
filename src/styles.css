@@ -1520,7 +1520,7 @@ a {
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
-  scroll-behavior: smooth;
+  overscroll-behavior: contain;
 }
 .messages {
   max-width: 860px;
@@ -1534,6 +1534,8 @@ a {
   display: flex;
   flex-direction: column;
   gap: 7px;
+}
+.msg.user {
   animation: msg-in 0.16s ease both;
 }
 .messages > .msg.assistant + .msg.assistant {
@@ -6151,4 +6153,73 @@ details[open] > summary.tool-card-head > svg {
   background: transparent;
   border: 1px solid var(--warn);
   color: var(--warn);
+}
+
+/* Queued messages waiting for the active chat or agent run to finish */
+.queued-bar {
+  flex: none;
+  max-width: 908px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 24px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.queued-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--bg-2);
+  color: var(--fg-2);
+}
+.queued-icon {
+  flex: none;
+  color: var(--accent);
+}
+.queued-order {
+  flex: none;
+  min-width: 14px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--fg-3);
+}
+.queued-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: var(--fg-1);
+}
+.queued-mode {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--fg-3);
+  border: 1px solid var(--line);
+  padding: 1px 4px;
+  border-radius: var(--radius-pill);
+}
+.queued-action {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--fg-2);
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  padding: 2px 5px;
+  cursor: pointer;
+}
+.queued-action:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--bg-hover);
 }

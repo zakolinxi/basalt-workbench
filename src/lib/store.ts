@@ -19,6 +19,7 @@ import type {
   OpenFileState,
   Project,
   Provider,
+  QueuedMessage,
   ReasoningEffort,
   Session,
   Settings,
@@ -49,6 +50,15 @@ interface ActiveChat {
   sessionId: string;
 }
 
+export interface SendInput {
+  text: string;
+  attachments: Attachment[];
+  mode: "chat" | "agent";
+  providerId: string;
+  model: string;
+  reasoningEffort?: ReasoningEffort;
+}
+
 interface AppStore {
   booted: boolean;
   bootError: string | null;
@@ -70,6 +80,8 @@ interface AppStore {
   pendingApprovals: ApprovalRequest[];
   activeChat: ActiveChat | null;
   imageChatBusy: boolean;
+  queuedMessages: QueuedMessage[];
+  queueProcessing: boolean;
   projectGit: GitStatus | null;
   changes: Change[];
   openFile: OpenFileState | null;
@@ -106,14 +118,12 @@ interface AppStore {
   deleteSession: (sessionId: string) => Promise<void>;
   updateSessionModel: (providerId: string, model: string) => Promise<void>;
   updateSessionReasoning: (effort: ReasoningEffort) => Promise<void>;
-  sendMessage: (input: {
-    text: string;
-    attachments: Attachment[];
-    mode: "chat" | "agent";
-    providerId: string;
-    model: string;
-    reasoningEffort?: ReasoningEffort;
-  }) => Promise<void>;
+  sendMessage: (input: SendInput) => Promise<void>;
+  queueMessage: (input: SendInput) => Promise<void>;
+  removeQueuedMessage: (messageId: string) => void;
+  editQueuedMessage: (messageId: string) => void;
+  interruptQueuedMessage: (messageId: string) => Promise<void>;
+  flushQueuedMessages: () => Promise<void>;
   retryChat: () => Promise<void>;
   cancelChat: () => Promise<void>;
   selectTask: (taskId: string) => Promise<void>;
@@ -210,6 +220,16 @@ function upsertMessage(messages: Message[], message: Message): Message[] {
   return [...messages, message];
 }
 
+function sessionIsBusy(state: AppStore, sessionId: string): boolean {
+  if (state.imageChatBusy) return true;
+  if (state.activeChat?.sessionId === sessionId) return true;
+  return state.tasks.some(
+    (task) =>
+      task.sessionId === sessionId &&
+      ["queued", "running", "waitingApproval"].includes(task.status),
+  );
+}
+
 function taskStatusForEvent(type: string): TaskStatus | null {
   switch (type) {
     case "TaskQueued":
@@ -286,6 +306,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   pendingApprovals: [],
   activeChat: null,
   imageChatBusy: false,
+  queuedMessages: [],
+  queueProcessing: false,
   projectGit: null,
   changes: [],
   openFile: null,
@@ -772,6 +794,97 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
   },
 
+  queueMessage: async (input) => {
+    const trimmed = input.text.trim();
+    if (!trimmed && input.attachments.length === 0) return;
+    let sessionId = get().currentSessionId;
+    if (!sessionId) {
+      const session = await get().newSession(get().currentProjectId);
+      if (!session) return;
+      sessionId = session.id;
+    }
+    const item: QueuedMessage = {
+      id: crypto.randomUUID(),
+      sessionId,
+      ...input,
+      text: trimmed,
+      createdAt: new Date().toISOString(),
+    };
+    set((state) => ({ queuedMessages: [...state.queuedMessages, item] }));
+    void get().flushQueuedMessages();
+  },
+
+  removeQueuedMessage: (messageId) => {
+    set((state) => ({
+      queuedMessages: state.queuedMessages.filter(
+        (item) => item.id !== messageId,
+      ),
+    }));
+  },
+
+  editQueuedMessage: (messageId) => {
+    const item = get().queuedMessages.find((queued) => queued.id === messageId);
+    if (!item) return;
+    get().removeQueuedMessage(messageId);
+    window.dispatchEvent(
+      new CustomEvent("basalt:set-composer", {
+        detail: {
+          text: item.text,
+          mode: item.mode,
+          attachments: item.attachments,
+        },
+      }),
+    );
+  },
+
+  interruptQueuedMessage: async (messageId) => {
+    const item = get().queuedMessages.find((queued) => queued.id === messageId);
+    if (!item) return;
+    set((state) => ({
+      queuedMessages: [
+        item,
+        ...state.queuedMessages.filter((queued) => queued.id !== messageId),
+      ],
+    }));
+    const state = get();
+    if (state.activeChat?.sessionId === item.sessionId) {
+      await state.cancelChat();
+    } else {
+      const task = state.tasks.find(
+        (candidate) =>
+          candidate.sessionId === item.sessionId &&
+          ["queued", "running", "waitingApproval"].includes(candidate.status),
+      );
+      if (task) await state.stopTask(task.id);
+    }
+    window.setTimeout(() => void get().flushQueuedMessages(), 350);
+  },
+
+  flushQueuedMessages: async () => {
+    if (get().queueProcessing) return;
+    const sessionId = get().currentSessionId;
+    if (!sessionId || sessionIsBusy(get(), sessionId)) return;
+    const next = get().queuedMessages.find((item) => item.sessionId === sessionId);
+    if (!next) return;
+    set((state) => ({
+      queueProcessing: true,
+      queuedMessages: state.queuedMessages.filter((item) => item.id !== next.id),
+    }));
+    try {
+      await get().sendMessage({
+        text: next.text,
+        attachments: next.attachments,
+        mode: next.mode,
+        providerId: next.providerId,
+        model: next.model,
+        reasoningEffort: next.reasoningEffort,
+      });
+    } finally {
+      set({ queueProcessing: false });
+      window.setTimeout(() => void get().flushQueuedMessages(), 0);
+    }
+  },
+
   retryChat: async () => {
     const { currentSessionId, sessions, messages, settings, providers } = get();
     if (!currentSessionId) return;
@@ -1188,6 +1301,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         event.kind === "message"
       ) {
         set({ activeChat: null });
+        window.setTimeout(() => void get().flushQueuedMessages(), 0);
       }
     } else if (event.kind === "error") {
       if (event.messageId) {
@@ -1198,6 +1312,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }
       if (state.activeChat && event.requestId === state.activeChat.requestId) {
         set({ activeChat: null });
+        window.setTimeout(() => void get().flushQueuedMessages(), 0);
       }
       if (event.error) {
         get().notify("error", "生成失败", event.error);
@@ -1211,6 +1326,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }
       if (state.activeChat && event.requestId === state.activeChat.requestId) {
         set({ activeChat: null });
+        window.setTimeout(() => void get().flushQueuedMessages(), 0);
       }
     }
   },
@@ -1307,6 +1423,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
           (approval) => approval.taskId !== event.taskId,
         ),
       }));
+      window.setTimeout(() => void get().flushQueuedMessages(), 0);
       void get().refreshTasks();
       void get().refreshSessions();
       if (get().taskDetails[event.taskId]) {
