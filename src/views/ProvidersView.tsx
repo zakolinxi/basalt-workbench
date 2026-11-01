@@ -1492,7 +1492,7 @@ function ModelCard({
                           </span>
                           <span className="cap-desc">{CAP_HINTS[key]}</span>
                         </span>
-                        <select
+                        <Select
                           className="cap-select"
                           data-state={state}
                           value={state}
@@ -1508,7 +1508,7 @@ function ModelCard({
                               {capabilityStateLabel(item)}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </label>
                     );
                   })}

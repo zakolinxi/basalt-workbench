@@ -1,16 +1,15 @@
-BASALT 0.1.24 — Windows x64
+BASALT 0.1.25 — Windows x64
 ===========================
 
 Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）。
 
 本次更新
 --------
-- 界面支持 简体中文 / English / 日本語 / 한국어 四种语言，设置页即时切换并持久化。
-- 覆盖工作台、设置、供应商、图像工作区与任务界面；模型回复、代码、
-  Diff、终端输出、文件路径与用户内容保持原文。
-- 日期、时间与相对时间按当前界面语言格式化。
-- 森林配色为 DULUX 90GY 21/472「绿林山居」#238E52。
-- 工具批次内联在对话中，测试 PASS/FAIL 与完成运行统计保持显示。
+- 全部下拉框替换为应用内自定义菜单，不再使用原生 select 弹层。
+- 支持点击外部 / Esc 关闭、方向键与 Home/End 导航、Enter 选择、
+  选中标记、自动上下翻转与滚动跟随定位。
+- 设置、模型路由、供应商类型/协议、能力状态、图像参数与语言选择同步更新。
+- 保留四语言界面与森林配色 #238E52。
 - 统一解析各协议缓存字段：OpenAI Chat（prompt_tokens_details.cached_tokens、
   DeepSeek prompt_cache_hit_tokens）、OpenAI Responses（input_tokens_details）、
   Anthropic（缓存读取 + 写入归一化）、Gemini（cachedContentTokenCount）。
@@ -26,7 +25,7 @@ Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）�
 
 两种方式
 --------
-1. 安装版：运行 Basalt_0.1.24_x64-setup.exe，按向导安装。
+1. 安装版：运行 Basalt_0.1.25_x64-setup.exe，按向导安装。
 2. 便携版：直接运行 Basalt.exe。便携版仍使用 %APPDATA%\com.basalt.workbench
    保存数据库、附件与设置。
 

@@ -1,11 +1,15 @@
 import {
+  Children,
+  isValidElement,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ButtonHTMLAttributes,
+  type CSSProperties,
   type InputHTMLAttributes,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
-  type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from "react";
 import { createPortal } from "react-dom";
@@ -14,6 +18,7 @@ import {
   AlertTriangle,
   Check,
   CheckCircle2,
+  ChevronDown,
   Copy,
   Info,
   X,
@@ -80,8 +85,245 @@ export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea {...props} className={clsx("textarea", props.className)} />;
 }
 
-export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={clsx("select", props.className)} />;
+interface SelectOption {
+  value: string;
+  label: ReactNode;
+  disabled: boolean;
+}
+
+function parseSelectOptions(children: ReactNode): SelectOption[] {
+  const options: SelectOption[] = [];
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child)) return;
+    if (child.type === "option") {
+      const props = child.props as {
+        value?: string | number;
+        children?: ReactNode;
+        disabled?: boolean;
+      };
+      const fallback =
+        typeof props.children === "string" ? props.children : "";
+      options.push({
+        value: String(props.value ?? fallback),
+        label: props.children,
+        disabled: Boolean(props.disabled),
+      });
+    } else if (child.type === "optgroup") {
+      const props = child.props as { children?: ReactNode };
+      options.push(...parseSelectOptions(props.children));
+    }
+  });
+  return options;
+}
+
+export function Select({
+  value,
+  onChange,
+  disabled,
+  className,
+  children,
+  title,
+  placeholder,
+  style,
+  "data-i18n-skip": i18nSkip,
+  "data-state": dataState,
+}: {
+  value?: string;
+  onChange?: (event: { target: { value: string } }) => void;
+  disabled?: boolean;
+  className?: string;
+  children?: ReactNode;
+  title?: string;
+  placeholder?: string;
+  style?: CSSProperties;
+  "data-i18n-skip"?: string;
+  "data-state"?: string;
+}) {
+  const options = parseSelectOptions(children);
+  const selected = options.find((option) => option.value === (value ?? ""));
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const isDisabled = Boolean(disabled) || options.length === 0;
+
+  const close = () => setOpen(false);
+
+  const placeMenu = () => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const itemHeight = 30;
+    const desired = Math.min(300, Math.max(80, options.length * itemHeight + 8));
+    const spaceBelow = window.innerHeight - rect.bottom - 8;
+    const spaceAbove = rect.top - 8;
+    const openUp = spaceBelow < Math.min(desired, 220) && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(60, Math.min(300, openUp ? spaceAbove : spaceBelow));
+    setMenuStyle({
+      position: "fixed",
+      left: Math.max(8, Math.min(rect.left, window.innerWidth - Math.max(rect.width, 160) - 8)),
+      width: Math.max(rect.width, 160),
+      ...(openUp
+        ? { bottom: window.innerHeight - rect.top + 4 }
+        : { top: rect.bottom + 4 }),
+      maxHeight,
+    });
+  };
+
+  const openMenu = () => {
+    const selectedIndex = Math.max(
+      0,
+      options.findIndex((option) => option.value === (value ?? "")),
+    );
+    setActive(selectedIndex);
+    placeMenu();
+    setOpen(true);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      close();
+    };
+    const onScroll = (event: Event) => {
+      if (menuRef.current?.contains(event.target as Node)) return;
+      close();
+    };
+    const onResize = () => close();
+    document.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    placeMenu();
+    const child = menuRef.current?.children[active] as HTMLElement | undefined;
+    child?.scrollIntoView({ block: "nearest" });
+  }, [open, active]);
+
+  const choose = (option: SelectOption) => {
+    if (option.disabled) return;
+    onChange?.({ target: { value: option.value } });
+    close();
+    triggerRef.current?.focus();
+  };
+
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (isDisabled) return;
+    if (!open) {
+      if (["ArrowDown", "ArrowUp", "Enter", " "].includes(event.key)) {
+        event.preventDefault();
+        openMenu();
+      }
+      return;
+    }
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        setActive((index) => Math.min(options.length - 1, index + 1));
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        setActive((index) => Math.max(0, index - 1));
+        break;
+      case "Home":
+        event.preventDefault();
+        setActive(0);
+        break;
+      case "End":
+        event.preventDefault();
+        setActive(options.length - 1);
+        break;
+      case "Enter":
+      case " ":
+        event.preventDefault();
+        if (options[active]) choose(options[active]);
+        break;
+      case "Escape":
+        event.preventDefault();
+        close();
+        break;
+      case "Tab":
+        close();
+        break;
+      default:
+        break;
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        ref={triggerRef}
+        className={clsx("custom-select", open && "open", className)}
+        disabled={isDisabled}
+        title={title}
+        style={style}
+        data-state={dataState}
+        data-i18n-skip={i18nSkip}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => (open ? close() : openMenu())}
+        onKeyDown={onKeyDown}
+      >
+        <span className="custom-select-value">
+          {selected?.label ?? placeholder ?? value ?? ""}
+        </span>
+        <ChevronDown size={12} className="custom-select-chevron" />
+      </button>
+      {open
+        ? createPortal(
+            <div
+              ref={menuRef}
+              className="custom-select-menu"
+              role="listbox"
+              style={menuStyle}
+              data-i18n-skip={i18nSkip}
+            >
+              {options.map((option, index) => {
+                const isSelected = option.value === (value ?? "");
+                return (
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    disabled={option.disabled}
+                    className={clsx(
+                      "custom-select-option",
+                      index === active && "active",
+                      isSelected && "selected",
+                    )}
+                    key={`${option.value}-${index}`}
+                    title={typeof option.label === "string" ? option.label : undefined}
+                    onMouseEnter={() => setActive(index)}
+                    onClick={() => choose(option)}
+                  >
+                    <span className="custom-select-option-label">
+                      {option.label}
+                    </span>
+                    {isSelected ? (
+                      <Check size={11} className="custom-select-check" />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
+  );
 }
 
 export function Field({
