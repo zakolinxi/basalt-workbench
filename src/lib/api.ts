@@ -15,6 +15,7 @@ import type {
   Provider,
   ProviderInput,
   ProviderTestResult,
+  RunMetrics,
   Session,
   Settings,
   Task,
@@ -172,6 +173,11 @@ export const api = {
     }),
   usageStats: (providerId: string, model: string) =>
     invoke<UsageStats>("usage_stats", { providerId, model }),
+  runMetrics: (sessionId: string, taskId?: string | null) =>
+    invoke<RunMetrics | null>("run_metrics", {
+      sessionId,
+      taskId: taskId ?? null,
+    }),
 
   terminalCreate: (input: {
     projectId?: string | null;

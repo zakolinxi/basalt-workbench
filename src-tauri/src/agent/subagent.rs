@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::time::Instant;
 
 use serde_json::{json, Value};
 use tokio::sync::mpsc::unbounded_channel;
@@ -120,6 +121,7 @@ pub async fn run(
         let rt_for = rt.clone();
         let token = cancel.clone();
         let (tx, mut rx) = unbounded_channel::<ProviderEvent>();
+        let round_started = Instant::now();
         let handle = tauri::async_runtime::spawn(async move {
             adapter.chat(&client, &rt_for, &request, &tx, &token).await
         });
@@ -155,12 +157,24 @@ pub async fn run(
         handle
             .await
             .map_err(|e| AppError::msg(format!("子代理执行异常：{e}")))??;
+        let duration_ms = round_started.elapsed().as_millis() as u64;
         if !usage.is_empty() {
             let conn = state.db();
             let _ = crate::db::record_usage(
                 &conn,
                 &task.provider_id,
                 &model,
+                usage.input_tokens,
+                usage.cached_tokens,
+                usage.output_tokens,
+            );
+            let _ = crate::db::record_run_metric(
+                &conn,
+                &task.session_id,
+                Some(&task.id),
+                &task.provider_id,
+                &model,
+                duration_ms,
                 usage.input_tokens,
                 usage.cached_tokens,
                 usage.output_tokens,

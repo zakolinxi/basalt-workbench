@@ -28,8 +28,11 @@ GitHub：<https://github.com/zakolinxi/basalt-workbench>
   「Token 用量」面板，查看缓存命中、未缓存输入、缓存读取与输出。
 - **Agent 编程闭环**：目标 → 计划 → 工具调用 → 审批 → 文件修改 → Diff → 终端测试 →
   失败修复 → 报告。内置联网搜索、网页读取与只读子代理；所有展示都来自真实工具事件，
-  不使用伪造进度。工具调用按批次合并为默认折叠的执行摘要行；主 Agent 与子代理
-  均不设固定轮次或工具调用次数上限，可随时停止。
+  不使用伪造进度。工具批次内联在对话中并默认折叠，测试 PASS/FAIL 紧跟其后；
+  完成后在输入框上方显示模型、耗时与输出 tok/s。主 Agent 与子代理均不设固定轮次
+  或工具调用次数上限，可随时停止。
+- **任务侧栏**：TODO 固定在右侧面板顶部 15% 高度，仅显示前三项并可展开全部；
+  代码变更列表位于其下，可直接打开 Diff。
 - **审批与安全**：写入与命令默认等待批准；路径穿越、符号链接逃逸、危险命令、编码载荷、
   注册表 / 提权 / 磁盘操作会被策略拒绝。API Key 存储在 Windows 凭据管理器。
 - **真实变更审查**：每次 Agent 写入生成变更快照；支持统一 / 并排 Diff、单文件接受、
@@ -66,9 +69,9 @@ npm run tauri build
 
 本机已验证产物（见 `release/`）：
 
-- `release/Basalt.exe` — 免安装 EXE（20.78 MiB）
-- `release/Basalt_0.1.21_x64-setup.exe` — NSIS 安装包（7.64 MiB）
-- `release/Basalt-0.1.21-x64-portable.zip` — 便携压缩包（9.52 MiB）
+- `release/Basalt.exe` — 免安装 EXE（20.87 MiB）
+- `release/Basalt_0.1.22_x64-setup.exe` — NSIS 安装包（7.66 MiB）
+- `release/Basalt-0.1.22-x64-portable.zip` — 便携压缩包（9.54 MiB）
 - `release/SHA256SUMS.txt` — 校验和
 
 原始构建位置：`src-tauri/target/release/basalt.exe`、

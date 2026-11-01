@@ -267,6 +267,16 @@ export interface UsageStats {
   updatedAt?: string | null;
 }
 
+export interface RunMetrics {
+  providerId: string;
+  model: string;
+  durationMs: number;
+  inputTokens: number;
+  cachedTokens: number;
+  outputTokens: number;
+  requests: number;
+}
+
 export interface ModelEndpointView {
   model: string;
   protocol: string;

@@ -139,6 +139,7 @@ pub fn session_delete(state: State<'_, AppState>, session_id: String) -> AppResu
         "DELETE FROM changes WHERE task_id IN (SELECT id FROM tasks WHERE session_id = ?1)",
         [&session_id],
     )?;
+    conn.execute("DELETE FROM run_metrics WHERE session_id = ?1", [&session_id])?;
     conn.execute("DELETE FROM tasks WHERE session_id = ?1", [&session_id])?;
     conn.execute("DELETE FROM messages WHERE session_id = ?1", [&session_id])?;
     conn.execute("DELETE FROM sessions WHERE id = ?1", [&session_id])?;

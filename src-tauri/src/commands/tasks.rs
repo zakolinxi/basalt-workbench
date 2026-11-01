@@ -404,6 +404,7 @@ pub fn task_delete(state: State<'_, AppState>, task_id: String) -> AppResult<()>
     conn.execute("DELETE FROM task_events WHERE task_id = ?1", [&task_id])?;
     conn.execute("DELETE FROM tool_calls WHERE task_id = ?1", [&task_id])?;
     conn.execute("DELETE FROM changes WHERE task_id = ?1", [&task_id])?;
+    crate::db::clear_run_metrics_task(&conn, &task_id)?;
     conn.execute("UPDATE messages SET task_id = NULL WHERE task_id = ?1", [&task_id])?;
     conn.execute("DELETE FROM tasks WHERE id = ?1", [&task_id])?;
     Ok(())

@@ -86,6 +86,7 @@ pub fn run() {
             commands::chat::chat_cancel,
             commands::chat::context_usage,
             commands::chat::usage_stats,
+            commands::chat::run_metrics,
             commands::terminal::terminal_create,
             commands::terminal::terminal_write,
             commands::terminal::terminal_resize,

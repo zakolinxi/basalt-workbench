@@ -1,8 +1,9 @@
 use std::path::Path;
 
 use chrono::Utc;
-use rusqlite::{params, Connection, Row};
+use rusqlite::{params, Connection, OptionalExtension, Row};
 use serde_json::json;
+use uuid::Uuid;
 
 use crate::error::AppResult;
 use crate::models::*;
@@ -150,6 +151,20 @@ CREATE TABLE IF NOT EXISTS usage_stats (
   updated_at TEXT NOT NULL,
   PRIMARY KEY(provider_id, model)
 );
+CREATE TABLE IF NOT EXISTS run_metrics (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  task_id TEXT,
+  provider_id TEXT NOT NULL,
+  model TEXT NOT NULL,
+  duration_ms INTEGER NOT NULL DEFAULT 0,
+  input_tokens INTEGER NOT NULL DEFAULT 0,
+  cached_tokens INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_run_metrics_session ON run_metrics(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_run_metrics_task ON run_metrics(task_id, created_at);
 CREATE TABLE IF NOT EXISTS changes (
   id TEXT PRIMARY KEY,
   task_id TEXT NOT NULL,
@@ -559,6 +574,110 @@ pub fn clear_usage_stats_model(conn: &Connection, provider_id: &str, model: &str
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn record_run_metric(
+    conn: &Connection,
+    session_id: &str,
+    task_id: Option<&str>,
+    provider_id: &str,
+    model: &str,
+    duration_ms: u64,
+    input_tokens: u64,
+    cached_tokens: u64,
+    output_tokens: u64,
+) -> AppResult<()> {
+    conn.execute(
+        "INSERT INTO run_metrics(id, session_id, task_id, provider_id, model, duration_ms,
+         input_tokens, cached_tokens, output_tokens, created_at)
+         VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        params![
+            Uuid::new_v4().to_string(),
+            session_id,
+            task_id,
+            provider_id,
+            model,
+            duration_ms as i64,
+            input_tokens as i64,
+            cached_tokens as i64,
+            output_tokens as i64,
+            now()
+        ],
+    )?;
+    Ok(())
+}
+
+pub fn get_run_metrics(
+    conn: &Connection,
+    session_id: &str,
+    task_id: Option<&str>,
+) -> AppResult<Option<RunMetrics>> {
+    if let Some(task_id) = task_id {
+        let (provider_id, model, duration_ms, input_tokens, cached_tokens, output_tokens, requests):
+            (Option<String>, Option<String>, i64, i64, i64, i64, i64) = conn.query_row(
+            "SELECT
+               (SELECT provider_id FROM run_metrics WHERE task_id = ?1 ORDER BY created_at DESC, rowid DESC LIMIT 1),
+               (SELECT model FROM run_metrics WHERE task_id = ?1 ORDER BY created_at DESC, rowid DESC LIMIT 1),
+               COALESCE(SUM(duration_ms), 0),
+               COALESCE(SUM(input_tokens), 0),
+               COALESCE(SUM(cached_tokens), 0),
+               COALESCE(SUM(output_tokens), 0),
+               COUNT(*)
+             FROM run_metrics WHERE task_id = ?1",
+            [task_id],
+            |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                    row.get(5)?,
+                    row.get(6)?,
+                ))
+            },
+        )?;
+        if requests == 0 {
+            return Ok(None);
+        }
+        Ok(Some(RunMetrics {
+            provider_id: provider_id.unwrap_or_default(),
+            model: model.unwrap_or_default(),
+            duration_ms: duration_ms.max(0) as u64,
+            input_tokens: input_tokens.max(0) as u64,
+            cached_tokens: cached_tokens.max(0) as u64,
+            output_tokens: output_tokens.max(0) as u64,
+            requests: requests.max(0) as u64,
+        }))
+    } else {
+        let metrics = conn
+            .query_row(
+                "SELECT provider_id, model, duration_ms, input_tokens, cached_tokens, output_tokens
+                 FROM run_metrics
+                 WHERE session_id = ?1 AND task_id IS NULL
+                 ORDER BY created_at DESC, rowid DESC LIMIT 1",
+                [session_id],
+                |row| {
+                    Ok(RunMetrics {
+                        provider_id: row.get(0)?,
+                        model: row.get(1)?,
+                        duration_ms: row.get::<_, i64>(2)?.max(0) as u64,
+                        input_tokens: row.get::<_, i64>(3)?.max(0) as u64,
+                        cached_tokens: row.get::<_, i64>(4)?.max(0) as u64,
+                        output_tokens: row.get::<_, i64>(5)?.max(0) as u64,
+                        requests: 1,
+                    })
+                },
+            )
+            .optional()?;
+        Ok(metrics)
+    }
+}
+
+pub fn clear_run_metrics_task(conn: &Connection, task_id: &str) -> AppResult<()> {
+    conn.execute("DELETE FROM run_metrics WHERE task_id = ?1", [task_id])?;
+    Ok(())
+}
+
 pub fn clear_model_endpoints(conn: &Connection, provider_id: &str) -> AppResult<()> {
     conn.execute(
         "DELETE FROM model_endpoints WHERE provider_id = ?1",
@@ -873,6 +992,29 @@ mod tests {
         record_usage(&conn, "p2", "m2", 10, 5, 2).unwrap();
         clear_usage_stats(&conn, "p2").unwrap();
         assert_eq!(get_usage_stats(&conn, "p2", "m2").requests, 0);
+    }
+
+    #[test]
+    fn aggregates_run_metrics_by_task_and_latest_chat() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = open_db(dir.path()).unwrap();
+        record_run_metric(&conn, "s1", Some("t1"), "p1", "m1", 1000, 100, 80, 10).unwrap();
+        record_run_metric(&conn, "s1", Some("t1"), "p1", "m1", 2000, 200, 180, 20).unwrap();
+        let task = get_run_metrics(&conn, "s1", Some("t1")).unwrap().unwrap();
+        assert_eq!(task.duration_ms, 3000);
+        assert_eq!(task.input_tokens, 300);
+        assert_eq!(task.cached_tokens, 260);
+        assert_eq!(task.output_tokens, 30);
+        assert_eq!(task.requests, 2);
+        assert_eq!(task.model, "m1");
+        record_run_metric(&conn, "s1", None, "p1", "m2", 500, 50, 40, 5).unwrap();
+        let chat = get_run_metrics(&conn, "s1", None).unwrap().unwrap();
+        assert_eq!(chat.duration_ms, 500);
+        assert_eq!(chat.output_tokens, 5);
+        assert_eq!(chat.requests, 1);
+        assert_eq!(chat.model, "m2");
+        clear_run_metrics_task(&conn, "t1").unwrap();
+        assert!(get_run_metrics(&conn, "s1", Some("t1")).unwrap().is_none());
     }
 
     #[test]

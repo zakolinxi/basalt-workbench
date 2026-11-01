@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -8,13 +8,29 @@ import {
   Plus,
   Server,
   Sparkles,
+  Square,
   X,
 } from "lucide-react";
 import { useAppStore, currentProject, currentSession } from "../lib/store";
+import { api } from "../lib/api";
+import type { RunMetrics, TaskEvent } from "../lib/types";
 import { Button } from "./ui";
 import { MessageItem, StreamingItem } from "./MessageItem";
-import { TaskTimeline } from "./TaskTimeline";
+import { TaskActivity, isTaskActivityEvent } from "./TaskActivity";
 import { Composer } from "./Composer";
+
+function formatRunTime(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  return `${(ms / 1000).toFixed(1).replace(/\.0$/, "")}s`;
+}
+
+function formatRunRate(tokens: number, durationMs: number): string {
+  if (!Number.isFinite(tokens) || !Number.isFinite(durationMs) || durationMs <= 0) {
+    return "";
+  }
+  return `${(tokens / (durationMs / 1000)).toFixed(1).replace(/\.0$/, "")}`;
+}
 
 function formatApprovalArgs(name: string, args: Record<string, unknown>): string {
   if (name === "write_file") {
@@ -55,10 +71,14 @@ export function ChatView() {
   const setView = useAppStore((state) => state.setView);
   const retryChat = useAppStore((state) => state.retryChat);
   const resolveApproval = useAppStore((state) => state.resolveApproval);
+  const stopTask = useAppStore((state) => state.stopTask);
+  const resumeTask = useAppStore((state) => state.resumeTask);
   const tasks = useAppStore((state) => state.tasks);
+  const task = tasks.find((item) => item.id === activeTaskId) ?? null;
   const scrollRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
+  const [runMetrics, setRunMetrics] = useState<RunMetrics | null>(null);
 
   const currentStreams = useMemo(
     () =>
@@ -78,6 +98,102 @@ export function ChatView() {
     lastMessage.role === "assistant" &&
     !lastMessage.taskId &&
     !activeChat;
+  const taskStatus = task?.status ?? null;
+  const taskActive = Boolean(
+    taskStatus && ["queued", "running", "waitingApproval"].includes(taskStatus),
+  );
+  const streamActive = currentStreams.length > 0 || Boolean(activeChat);
+  const metricsTaskId =
+    activeTaskId && lastMessage?.taskId === activeTaskId ? activeTaskId : null;
+  const taskMessages = useMemo(
+    () => (activeTaskId ? messages.filter((message) => message.taskId === activeTaskId) : []),
+    [messages, activeTaskId],
+  );
+  const taskActivityEvents = useMemo(
+    () => (taskDetail?.events ?? []).filter(isTaskActivityEvent),
+    [taskDetail],
+  );
+  const activityByMessage = useMemo(() => {
+    const map = new Map<string, TaskEvent[]>();
+    if (!activeTaskId) return map;
+    taskMessages.forEach((message, index) => {
+      const next = taskMessages[index + 1];
+      const slice = taskActivityEvents.filter(
+        (event) =>
+          event.createdAt >= message.createdAt &&
+          (!next || event.createdAt <= next.createdAt),
+      );
+      if (slice.length > 0) map.set(message.id, slice);
+    });
+    return map;
+  }, [activeTaskId, taskMessages, taskActivityEvents]);
+  const trailingActivity =
+    taskMessages.length === 0 ? taskActivityEvents : [];
+  const metricsForTask = Boolean(
+    task && metricsTaskId && metricsTaskId === task.id,
+  );
+  const canResume = Boolean(
+    task &&
+      metricsForTask &&
+      ["interrupted", "failed", "cancelled"].includes(task.status),
+  );
+  const runNotice =
+    task && metricsForTask && !taskActive
+      ? task.status === "failed"
+        ? task.error || "任务失败"
+        : task.status === "interrupted"
+          ? "任务已中断，进度与变更已保留。"
+          : task.status === "cancelled"
+            ? "任务已取消。"
+            : null
+      : null;
+  const showRunStats = Boolean(
+    runMetrics &&
+      runMetrics.outputTokens > 0 &&
+      runMetrics.durationMs > 0 &&
+      !taskActive &&
+      !streamActive,
+  );
+  const metricsProvider = providers.find(
+    (provider) => provider.id === runMetrics?.providerId,
+  );
+  const metricsModel =
+    metricsProvider?.models.find((model) => model.id === runMetrics?.model)?.name ??
+    runMetrics?.model ??
+    "";
+
+  useEffect(() => {
+    if (!session?.id) {
+      setRunMetrics(null);
+      return;
+    }
+    if (taskActive || streamActive) {
+      setRunMetrics(null);
+      return;
+    }
+    setRunMetrics(null);
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      api
+        .runMetrics(session.id, metricsTaskId)
+        .then((metrics) => {
+          if (!cancelled) setRunMetrics(metrics);
+        })
+        .catch(() => {
+          if (!cancelled) setRunMetrics(null);
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    session?.id,
+    metricsTaskId,
+    taskActive,
+    streamActive,
+    messages.length,
+  ]);
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -114,14 +230,20 @@ export function ChatView() {
       <div className="chat-scroll" ref={scrollRef} onScroll={onScroll}>
         {hasContent ? (
           <div className="messages">
-            {messages.map((message, index) => (
-              <MessageItem
-                key={message.id}
-                message={message}
-                canRetry={canRetry && index === messages.length - 1}
-                onRetry={() => void retryChat()}
-              />
-            ))}
+            {messages.map((message, index) => {
+              const activity = activityByMessage.get(message.id);
+              return (
+                <MessageItem
+                  key={message.id}
+                  message={message}
+                  canRetry={canRetry && index === messages.length - 1}
+                  onRetry={() => void retryChat()}
+                  footer={
+                    activity ? <TaskActivity events={activity} /> : undefined
+                  }
+                />
+              );
+            })}
             {currentStreams.map((stream) => (
               <StreamingItem
                 key={stream.messageId}
@@ -130,7 +252,11 @@ export function ChatView() {
                 task={Boolean(stream.taskId)}
               />
             ))}
-            {activeTaskId ? <TaskTimeline taskId={activeTaskId} /> : null}
+            {trailingActivity.length > 0 ? (
+              <div className="trailing-task-activity">
+                <TaskActivity events={trailingActivity} />
+              </div>
+            ) : null}
             <div ref={endRef} />
           </div>
         ) : (
@@ -235,6 +361,69 @@ export function ChatView() {
           </div>
         )}
       </div>
+
+      {taskActive && task ? (
+        <div className="chat-runbar">
+          <div className="run-status">
+            <span className="spinner" style={{ width: 10, height: 10 }} />
+            <span className="run-status-label">
+              {task.status === "queued"
+                ? "任务排队中"
+                : task.status === "waitingApproval"
+                  ? "等待审批"
+                  : "Agent 正在执行"}
+            </span>
+            <span className="run-status-spacer" />
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={() => void stopTask(task.id)}
+            >
+              <Square size={9} /> 停止
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {runNotice || (showRunStats && runMetrics) ? (
+        <div className="chat-runbar">
+          <div className="run-footer">
+            {runNotice ? <div className="run-notice">{runNotice}</div> : null}
+            {showRunStats && runMetrics ? (
+              <div className="run-stats">
+                <span className="run-stats-model">{metricsModel}</span>
+                <span className="run-stats-sep">·</span>
+                <span className="run-stats-metric">
+                  {formatRunTime(runMetrics.durationMs)}
+                </span>
+                <span className="run-stats-sep">·</span>
+                <span className="run-stats-metric">
+                  {formatRunRate(runMetrics.outputTokens, runMetrics.durationMs)} tok/s
+                </span>
+                {canResume && task ? (
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={() => void resumeTask(task.id)}
+                  >
+                    继续
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+            {canResume && task && !(showRunStats && runMetrics) ? (
+              <div className="run-actions">
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => void resumeTask(task.id)}
+                >
+                  继续
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       <div className="composer-wrap">
         {pendingApprovals.length > 0 ? (

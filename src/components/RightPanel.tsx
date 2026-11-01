@@ -5,6 +5,7 @@ import { IconButton } from "./ui";
 import { CodeView } from "./CodeView";
 import { ChangesPanel } from "./ChangesPanel";
 import { DiffView } from "./DiffView";
+import { TaskRail } from "./TaskRail";
 
 export function RightPanel({ style }: { style?: CSSProperties }) {
   const rightTab = useAppStore((state) => state.rightTab);
@@ -47,6 +48,7 @@ export function RightPanel({ style }: { style?: CSSProperties }) {
           </IconButton>
         </div>
       </div>
+      <TaskRail />
       <div className="right-content">
         {rightTab === "code" ? <CodeView /> : null}
         {rightTab === "changes" ? <ChangesPanel /> : null}

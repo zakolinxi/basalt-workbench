@@ -13,7 +13,8 @@ use crate::error::{AppError, AppResult};
 use crate::files::path_is_within;
 use crate::messaging;
 use crate::models::{
-    Attachment, ChatEvent, ContextUsage, Message, Session, UsageStats, CAP_UNSUPPORTED, CAP_VERIFIED,
+    Attachment, ChatEvent, ContextUsage, Message, RunMetrics, Session, UsageStats, CAP_UNSUPPORTED,
+    CAP_VERIFIED,
 };
 use crate::providers::{
     capabilities_for, chat_adapter_for, load_chat_runtime, mark_capabilities, ChatMessage, ChatRequest,
@@ -516,6 +517,7 @@ async fn chat_send_inner(
     };
     let (tx, mut rx) = unbounded_channel::<ProviderEvent>();
     let token_for = token.clone();
+    let started = std::time::Instant::now();
     let handle = tauri::async_runtime::spawn(async move {
         adapter
             .chat(&client, &rt_for, &request, &tx, &token_for)
@@ -553,12 +555,24 @@ async fn chat_send_inner(
     let provider_result = handle
         .await
         .map_err(|e| AppError::msg(format!("对话任务异常：{e}")))?;
+    let duration_ms = started.elapsed().as_millis() as u64;
     if !usage.is_empty() {
         let conn = state.db();
         let _ = crate::db::record_usage(
             &conn,
             &input.provider_id,
             &model,
+            usage.input_tokens,
+            usage.cached_tokens,
+            usage.output_tokens,
+        );
+        let _ = crate::db::record_run_metric(
+            &conn,
+            &session.id,
+            None,
+            &input.provider_id,
+            &model,
+            duration_ms,
             usage.input_tokens,
             usage.cached_tokens,
             usage.output_tokens,
@@ -766,6 +780,16 @@ pub fn usage_stats(
         &provider_id,
         model.trim(),
     ))
+}
+
+#[tauri::command]
+pub fn run_metrics(
+    state: State<'_, AppState>,
+    session_id: String,
+    task_id: Option<String>,
+) -> AppResult<Option<RunMetrics>> {
+    let conn = state.db();
+    crate::db::get_run_metrics(&conn, &session_id, task_id.as_deref())
 }
 
 #[tauri::command]

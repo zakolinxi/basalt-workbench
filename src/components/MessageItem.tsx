@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { FileText, RotateCcw, Wrench } from "lucide-react";
 import clsx from "clsx";
 import { save } from "@tauri-apps/plugin-dialog";
@@ -51,10 +51,12 @@ export function MessageItem({
   message,
   onRetry,
   canRetry,
+  footer,
 }: {
   message: Message;
   onRetry?: () => void;
   canRetry?: boolean;
+  footer?: ReactNode;
 }) {
   const isUser = message.role === "user";
   const images = message.attachments.filter((attachment) => attachment.kind === "image");
@@ -112,6 +114,7 @@ export function MessageItem({
           ))}
         </div>
       ) : null}
+      {footer ? <div className="msg-inline-activity">{footer}</div> : null}
       {!isUser && canRetry && onRetry ? (
         <div className="msg-actions">
           <IconButton label="重试上一条请求" onClick={onRetry} size="sm">

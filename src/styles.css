@@ -1512,6 +1512,112 @@ a {
 .msg.task-note .msg-body {
   color: var(--fg-2);
 }
+.msg-inline-activity,
+.trailing-task-activity {
+  padding-left: 22px;
+}
+.trailing-task-activity {
+  margin-top: -8px;
+}
+.task-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.task-activity .tool-run-summary {
+  padding-left: 0;
+  padding-right: 4px;
+}
+.task-test-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 4px;
+  border-radius: var(--radius-xs);
+  font-size: 10.5px;
+  color: var(--fg-2);
+}
+.task-test-row:hover {
+  background: var(--bg-hover);
+}
+.task-test-label {
+  flex: none;
+  color: var(--fg-1);
+}
+.task-test-command {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--fg-3);
+}
+.task-test-exit {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--fg-3);
+}
+.chat-runbar {
+  flex: none;
+  width: 100%;
+  max-width: 936px;
+  margin: 0 auto;
+  padding: 0 28px 6px;
+}
+.run-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10.5px;
+  color: var(--fg-2);
+}
+.run-status-spacer {
+  flex: 1;
+}
+.run-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.run-notice {
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--fg-3);
+}
+.run-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-3);
+}
+.run-stats-model {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-2);
+}
+.run-stats-sep {
+  color: var(--line-strong);
+}
+.run-stats-metric {
+  flex: none;
+}
+.run-stats .btn {
+  margin-left: 4px;
+}
+.run-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .msg-actions {
   display: flex;
   gap: 2px;
@@ -3321,6 +3427,123 @@ a {
 
 /* ---------- right panel / code / changes / diff ---------- */
 
+.rail-todo,
+.rail-changes {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-1);
+}
+.rail-todo {
+  height: 15%;
+  min-height: 104px;
+  max-height: 160px;
+}
+.rail-changes {
+  flex: 0 1 auto;
+  max-height: 190px;
+}
+.rail-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  margin-bottom: 5px;
+}
+.rail-count {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--fg-3);
+}
+.rail-more {
+  margin-left: 0;
+  padding: 1px 5px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  font-size: 9.5px;
+  color: var(--fg-3);
+  background: transparent;
+  cursor: pointer;
+}
+.rail-head .rail-more:first-of-type {
+  margin-left: auto;
+}
+.rail-more:hover {
+  color: var(--fg-1);
+  border-color: var(--line);
+  background: var(--bg-hover);
+}
+.rail-review {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.rail-plan {
+  flex: 1;
+  overflow: hidden;
+  gap: 1px;
+}
+.rail-plan .plan-step {
+  padding: 1px 0;
+  font-size: 10.5px;
+}
+.rail-plan-copy {
+  min-width: 0;
+}
+.rail-plan-copy .text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rail-empty {
+  padding: 4px 0;
+  font-size: 10.5px;
+  color: var(--fg-3);
+}
+.rail-change-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.rail-change {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 3px 4px;
+  border-radius: var(--radius-xs);
+  font-size: 10.5px;
+  color: var(--fg-2);
+  text-align: left;
+}
+.rail-change:hover {
+  background: var(--bg-hover);
+  color: var(--fg-1);
+}
+.rail-change .path {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+}
+.rail-change .st {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--fg-3);
+  text-transform: uppercase;
+}
+.modal-plan {
+  padding: 4px 0;
+  gap: 6px;
+}
 .right-content {
   flex: 1;
   min-height: 0;
@@ -5166,6 +5389,10 @@ a {
   .composer-wrap {
     padding-left: 12px;
     padding-right: 12px;
+  }
+  .chat-runbar {
+    padding-left: 20px;
+    padding-right: 20px;
   }
   .provider-list {
     width: 260px;

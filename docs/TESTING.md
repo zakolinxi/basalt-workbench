@@ -14,7 +14,7 @@
 | 前端单元测试 | `npx vitest run` | 18 passed（Diff / 权限 / Base URL / 工具格式化） |
 | 前端生产构建 | `npm run build` | 通过，生成 `dist/` |
 | Rust 编译检查 | `cargo check` | 通过 |
-| Rust 测试 | `cargo test` | **46 passed, 0 failed** |
+| Rust 测试 | `cargo test` | **47 passed, 0 failed** |
 
 前端测试覆盖 Diff、权限、Base URL 归一化与工具名称/目标格式化。
 
@@ -33,7 +33,8 @@ Rust 测试覆盖：
 - `providers/*` 缓存用量：OpenAI `prompt_tokens_details.cached_tokens`、
   DeepSeek `prompt_cache_hit_tokens`、Anthropic 缓存读写归一化、
   `message_delta` 缺少输入字段时不清零、累计快照按字段取最大值。
-- `db`：模板种子、无 Mock、设置往返持久化、缓存用量累加与清理。
+- `db`：模板种子、无 Mock、设置往返持久化、缓存用量累加与清理、
+  运行指标按任务聚合与最新聊天指标读取。
 - `git`：真实临时仓库的 untracked 状态、HEAD ↔ 工作区 Diff、分支列表、切换与新建。
 - `agent/tools`：真实 PowerShell 命令执行、stdout/stderr 捕获、退出码、
   取消后进程终止。
@@ -62,6 +63,12 @@ Rust 测试覆盖：
   点击外部与 Esc 均可关闭。
 - 连续 Assistant 消息：构造 1 条用户消息 + 3 条连续回复，仅首条保留角色头，
   后两条头部为 `display: none`、间距收为 10px，内容连续显示。
+- 任务布局重构：构造 1 个中断任务（3 轮文字、2 批工具、PASS/FAIL 测试、5 项计划、
+  2 个文件变更、7.5s/90 输出 tokens 指标）；确认任务卡片移除，工具批次与测试内联，
+  底部显示 `Cache Model · 7.5s · 12 tok/s` 与「继续」，右侧 TODO 高度为面板 15%
+  （124px / 828px）、仅三项并可显示全部 5 项，代码变更位于 TODO 下方。
+- 运行中状态：将任务置为 running 后确认统计条隐藏、底部显示「Agent 正在执行 / 停止」；
+  清除运行指标后确认仍显示「继续」回退按钮。
 - 配色卡片：玄武 / 森林 / 薄荷 / 蜜蜂 / 羊皮纸，深浅主题下整页背景、表面、强调色、460ms 过渡与持久化。
 - 思考强度选择器 8 档、会话持久化与各协议请求字段。
 - Agent 任务创建、联网搜索、网页读取、只读子代理与时间线输出。
@@ -95,10 +102,10 @@ Rust 测试覆盖：
 
 | 产物 | 结果 |
 | --- | --- |
-| `release/Basalt.exe` | 构建成功（21,788,160 字节，约 20.78 MiB） |
-| `release/Basalt_0.1.21_x64-setup.exe` | NSIS 安装包构建成功（7.64 MiB） |
-| `release/Basalt-0.1.21-x64-portable.zip` | 便携压缩包构建成功（9.52 MiB） |
-| 发布 EXE 冒烟 | `app_info` 返回 0.1.21，窗口正常关闭，退出码 0 |
+| `release/Basalt.exe` | 构建成功（21,883,392 字节，约 20.87 MiB） |
+| `release/Basalt_0.1.22_x64-setup.exe` | NSIS 安装包构建成功（7.66 MiB） |
+| `release/Basalt-0.1.22-x64-portable.zip` | 便携压缩包构建成功（9.54 MiB） |
+| 发布 EXE 冒烟 | `app_info` 返回 0.1.22，窗口正常关闭，退出码 0 |
 | 首次启动 | 成功；窗口 “Basalt Workbench”；数据目录正常创建 |
 | 遥测 / 网络 | 启动不联网；仅供应商请求与 Agent 联网工具会访问外部服务 |
 | 静默安装 | `/S /D=<temp>`，退出码 0 |
