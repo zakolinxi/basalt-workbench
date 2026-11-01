@@ -97,14 +97,17 @@ Rust 测试覆盖：
 
 旧的 13 步 Mock 冒烟脚本已随 Mock 移除而删除。
 
-当前界面截图（Ollama 本地供应商 + 演示工作区，不含真实密钥/项目数据）：
+当前界面截图（隔离演示数据库 `gateway-core`，不含真实密钥/项目数据）：
 
 | 截图 | 内容 |
 | --- | --- |
-| `readme-workbench.png` | 工作区 + 会话侧栏、默认 Agent 输入框 |
-| `readme-reasoning.png` | 思考强度 8 档选择 |
-| `readme-providers.png` | 供应商、模板与模型卡片编辑器 |
-| `readme-settings.png` | 外观配色与模型路由 |
+| `readme-workbench.png` | 工作区、会话气泡、内联工具、缓存条与上下文占用 |
+| `readme-agent.png` | Agent 完成后的工具摘要、测试 PASS/FAIL 与 Git Diff |
+| `readme-reasoning.png` | 思考强度 8 档选择（含说明与选中标记） |
+| `readme-providers.png` | 供应商、协议、鉴权与模型能力编辑器 |
+| `readme-settings.png` | 主题、五套配色、语言与终端/编辑器设置 |
+| `readme-languages.png` | 简体中文 / English / 日本語 / 한국어 切换菜单 |
+| `readme-terminal.png` | 全宽自适应 PowerShell（`git status` 输出） |
 
 测试发现的真实缺陷及修复：
 
@@ -123,10 +126,11 @@ Rust 测试覆盖：
 
 | 产物 | 结果 |
 | --- | --- |
-| `release/Basalt.exe` | 构建成功（21,888,000 字节，约 20.87 MiB） |
-| `release/Basalt_0.1.27_x64-setup.exe` | NSIS 安装包构建成功（7.73 MiB） |
-| `release/Basalt-0.1.27-x64-portable.zip` | 便携压缩包构建成功（9.61 MiB） |
-| 发布 EXE 冒烟 | 文件版本 0.1.27；界面与缓存隔离、懒加载在隔离实例验证 |
+| `release/Basalt.exe` | 构建成功（21,974,016 字节，约 20.96 MiB） |
+| `release/Basalt_0.1.28_x64-setup.exe` | NSIS 安装包构建成功（7.81 MiB） |
+| `release/Basalt-0.1.28-x64-portable.zip` | 便携压缩包构建成功（9.69 MiB） |
+| 发布 EXE 冒烟 | 文件版本 0.1.28；界面、缓存隔离与懒加载在隔离实例验证 |
+| 应用图标 | `gpt-image-2.5-sunburst` 生成 1254px 源图，透明圆角，`tauri icon` 生成全套各平台图标 |
 | 首次启动 | 成功；窗口 “Basalt Workbench”；数据目录正常创建 |
 | 遥测 / 网络 | 启动不联网；仅供应商请求与 Agent 联网工具会访问外部服务 |
 | 静默安装 | `/S /D=<temp>`，退出码 0 |

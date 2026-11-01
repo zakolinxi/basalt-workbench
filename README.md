@@ -1,167 +1,187 @@
-# BASALT
+<p align="center">
+  <img src="docs/basalt-icon.png" width="112" height="112" alt="Basalt app icon" />
+</p>
 
-**Basalt** 是一个本地优先的 Windows AI 编程工作台。它将多轮对话、审批门控的编程 Agent、
-真实终端、文件变更审查与独立图像生成整合到一个高密度桌面界面中。
+<h1 align="center">BASALT</h1>
 
-GitHub：<https://github.com/zakolinxi/basalt-workbench>  
-下载最新版本：<https://github.com/zakolinxi/basalt-workbench/releases/latest>
+<p align="center">
+  <strong>本地优先的 Windows AI 工程工作台</strong><br />
+  对话 · Agent · 代码审查 · 真实终端 · 图像生成
+</p>
 
-- 品牌：BASALT / 玄武
-- 定位：AI Engineering Workbench
-- 技术栈：Tauri 2 · Rust · React 19 · TypeScript · Vite · SQLite · Monaco · xterm.js
-- 平台：Windows 10/11（WebView2）
+<p align="center">
+  <img alt="Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white" />
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111" />
+  <img alt="Rust" src="https://img.shields.io/badge/Rust-stable-B7410E?logo=rust&logoColor=white" />
+  <img alt="Windows" src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&logoColor=white" />
+  <img alt="MIT" src="https://img.shields.io/badge/License-MIT-238E52" />
+</p>
 
-## 核心能力
+<p align="center">
+  <a href="https://github.com/zakolinxi/basalt-workbench/releases/latest">下载最新版本</a>
+  ·
+  <a href="docs/FEATURES.md">功能清单</a>
+  ·
+  <a href="docs/DESIGN.md">设计说明</a>
+  ·
+  <a href="docs/TESTING.md">测试记录</a>
+</p>
 
-- **多语言界面**：简体中文、English、日本語、한국어 即时切换；覆盖工作台、设置、
-  供应商、图像与任务界面，模型输出、代码与终端内容保持原文。
-- **按会话计量与省费用**：缓存用量跟随会话，不跨会话混用；旧消息的图片/附件
-  不再重复发送，工具回传上限 48k 字符。Anthropic 仅对会复用的前缀启用提示缓存，
-  兼容网关拒绝时自动回退，不增加额外请求。
-- **启动与资源**：Monaco、xterm、设置/供应商/图像视图按需加载，终端首次打开才挂载；
-  首屏主包由约 5.3 MB 降至约 0.8 MB，减少常驻内存。
-- **轻量对话界面**：用户消息使用右侧气泡，Assistant 回复使用紧凑头像与模型标签，
-  时间/复制悬停出现；输入框合并为单一圆角面板，终端占满宽度并限制在窗口 32% 高度内。
-- **多供应商、多协议**：OpenAI Chat Completions、OpenAI Responses、Anthropic Messages、
-  Google Gemini、Ollama、OpenAI 兼容接口与自定义网关；协议适配器、Agent Runtime、
-  Image Provider 三层解耦。模板内置当前主力模型的上下文、视觉与工具预设，并支持
-  统一选择思考强度（off / minimal / low / medium / high / xhigh / max / ultra），
-  按协议自动映射。
-- **模型接口自动选择**：首次调用后探测同一供应商可用的 Chat / Responses 端点，
-  按实测延迟与接口库的缓存/工具偏好选型并持久化；模型卡片可手动重新检测，
-  后续聊天、Agent、审查与子代理自动使用选定接口。
-- **连续回复合并**：同一轮 Agent 的连续 Assistant 消息只显示一次 BASALT 头，
-  后续文字直接衔接，长任务阅读更连贯。
-- **缓存用量可见**：输入框状态栏按供应商 + 模型累计 tokens 与缓存命中率，
-  统一解析 OpenAI Chat/Responses、Anthropic 与 Gemini 的缓存字段；点击展开
-  「Token 用量」面板，查看缓存命中、未缓存输入、缓存读取与输出。
-- **Agent 编程闭环**：目标 → 计划 → 工具调用 → 审批 → 文件修改 → Diff → 终端测试 →
-  失败修复 → 报告。内置联网搜索、网页读取与只读子代理；所有展示都来自真实工具事件，
-  不使用伪造进度。工具批次内联在对话中并默认折叠，测试 PASS/FAIL 紧跟其后；
-  完成后在输入框上方显示模型、耗时与输出 tok/s。主 Agent 与子代理均不设固定轮次
-  或工具调用次数上限，可随时停止。
-- **任务侧栏**：TODO 固定在右侧面板顶部 15% 高度，仅显示前三项并可展开全部；
-  代码变更列表位于其下，可直接打开 Diff。
-- **审批与安全**：写入与命令默认等待批准；路径穿越、符号链接逃逸、危险命令、编码载荷、
-  注册表 / 提权 / 磁盘操作会被策略拒绝。API Key 存储在 Windows 凭据管理器。
-- **真实变更审查**：每次 Agent 写入生成变更快照；支持统一 / 并排 Diff、单文件接受、
-  撤销与冲突检测。Git 状态与 HEAD 对比独立于任务快照。
-- **真实终端**：PowerShell / CMD / WSL，多标签、实时输出、退出码、搜索、复制、清屏、
-  终止进程。用户命令与 Agent 命令来源清晰区分。
-- **独立图像工作区**：生成、编辑、参考图、能力约束的参数面板、历史、保存、重生成、
-  继续编辑；对话内 `/img` 使用独立 Image Provider，不要求聊天模型具备生图能力。
-- **整页配色**：玄武、森林、薄荷、蜜蜂、羊皮纸五套方案同时改变背景、面板与强调色，
-  切换带 460ms 颜色过渡；选择立即保存，重启继续生效。
-- **本地优先**：项目、会话、变更快照与密钥都留在本机；只有你配置的供应商请求和
-  Agent 主动发起的联网工具调用会访问外部服务。
+---
+
+Basalt（玄武）是一个把 **多模型对话、审批门控的编程 Agent、真实终端、变更审查与图像生成**
+放进同一个高密度桌面界面的 AI 工程工作台。项目、会话、变更快照和密钥都留在本机；
+只有你配置的供应商请求和 Agent 主动发起的联网工具会访问外部服务。
+
+## 为什么是 Basalt
+
+- **Agent 优先，但不是玩具**：目标 → 计划 → 工具调用 → 审批 → 修改 → Diff → 测试 → 报告，
+  所有展示都来自真实工具事件，不伪造进度。主 Agent 与子代理均不设固定轮次上限。
+- **不把用户锁在一个模型里**：OpenAI Chat / Responses、Anthropic、Gemini、Ollama 与
+  OpenAI 兼容网关都能接入；首次调用后自动探测更低延迟、缓存更友好的接口并持久化。
+- **费用可见、可控**：缓存命中条按当前会话统计；旧附件不重复发送，工具回传有长度上限，
+  Anthropic 只对会复用的前缀启用提示缓存，兼容网关拒绝时自动回退。
+- **本地优先**：SQLite + Windows 凭据管理器；密钥不进入数据库、配置文件或普通日志。
+
+## 功能
+
+### Agent 与对话
+
+- 流式多轮对话、Markdown / 代码高亮、停止与重试。
+- 连续 Assistant 消息自动合并为一段，只保留首个角色头。
+- 工具批次内联在对话轮次中，默认折叠；测试通过/失败以 PASS / FAIL 行保留。
+- 回复完成后在输入框上方显示模型、耗时与输出 tok/s；中断/失败/取消可继续。
+- 右侧任务栏：TODO 固定在顶部 15% 高度，只显示前三项并可展开全部；代码变更紧随其后。
+- 思考强度 8 档（off / minimal / low / medium / high / xhigh / max / ultra），按协议映射。
+- 缓存命中、未缓存输入、缓存读取、输出与运行的上下文占用随手可见。
+
+### 多模型与自动接口
+
+- 内置模型接口库：按模型家族给出推荐协议、成本档、速度档与来源。
+- 首次真实调用后自动探测 Chat / Responses 端点，选择低延迟且缓存友好的接口。
+- 供应商模型卡片支持上下文窗口、10 项能力状态、默认模型与手动接口检测。
+- Base URL 自动补全：OpenAI `/v1`、Gemini `/v1beta`、Ollama 根地址。
+
+### 工作区
+
+- 无边框自定义标题栏，可拖动、双击最大化，窗口按钮与面包屑同一行。
+- 会话式侧栏，点击项目名切换工作区或添加目录，点击分支切换 / 新建 Git 分支。
+- 真实 PowerShell / CMD / WSL 终端，多标签、搜索、复制、清屏与进程终止；
+  终端占满可用宽度，默认高度克制，xterm 自动适配。
+- 独立图像工作区：生成、编辑、参考图、蒙版、历史、保存与继续编辑。
+
+### 界面
+
+- 简体中文 / English / 日本語 / 한국어，设置页即时切换并持久化。
+- 深浅主题、5 套整页配色（玄武 / 森林 / 薄荷 / 蜜蜂 / 羊皮纸）、460ms 颜色过渡。
+- 森林配色使用 DULUX 90GY 21/472「绿林山居」`#238E52`。
+- 下拉框统一使用应用内自定义菜单，不再出现原生浏览器弹层。
+- 首屏按需加载：Monaco、xterm、设置/供应商/图像视图均动态加载，主入口约 0.82 MB。
+
+## 界面截图
+
+| 工作台 | Agent 与 Diff |
+| --- | --- |
+| <img src="docs/screenshots/readme-workbench.png" width="100%" alt="Basalt 工作台" /> | <img src="docs/screenshots/readme-agent.png" width="100%" alt="Agent 工具与 Git Diff" /> |
+
+| 思考强度 | 供应商与模型 |
+| --- | --- |
+| <img src="docs/screenshots/readme-reasoning.png" width="100%" alt="思考强度 8 档" /> | <img src="docs/screenshots/readme-providers.png" width="100%" alt="供应商、协议与模型能力矩阵" /> |
+
+| 设置与配色 | 四语言切换 |
+| --- | --- |
+| <img src="docs/screenshots/readme-settings.png" width="100%" alt="设置、配色与模型路由" /> | <img src="docs/screenshots/readme-languages.png" width="100%" alt="简体中文、English、日本語、한국어" /> |
+
+<p align="center">
+  <img src="docs/screenshots/readme-terminal.png" width="100%" alt="全宽内置 PowerShell 终端" />
+  <br />
+  <sub>内置 PowerShell：占满宽度、高度自适应上限，xterm 自动 fit。</sub>
+</p>
 
 ## 快速开始
 
-环境要求：
+### 环境
 
-- Windows 10/11 x64，WebView2 Runtime
+- Windows 10 / 11 x64 + WebView2 Runtime
 - Node.js ≥ 20（本项目在 Node 26 上构建）
 - Rust stable（MSVC toolchain）与 Visual Studio Build Tools（C++ 工作负载）
-- Git（用于 Diff 与 Git 状态）
+- Git（用于 Diff、分支与 Git 状态）
+
+### 开发
 
 ```bash
 npm install
 npm run tauri dev
 ```
 
-生产构建：
+### 构建
 
 ```bash
 npm run build
 npm run tauri build
 ```
 
-本机已验证产物（见 `release/`）：
+## 下载
 
-- `release/Basalt.exe` — 免安装 EXE（20.87 MiB）
-- `release/Basalt_0.1.27_x64-setup.exe` — NSIS 安装包（7.73 MiB）
-- `release/Basalt-0.1.27-x64-portable.zip` — 便携压缩包（9.61 MiB）
-- `release/SHA256SUMS.txt` — 校验和
+最新发布：<https://github.com/zakolinxi/basalt-workbench/releases/latest>
 
-原始构建位置：`src-tauri/target/release/basalt.exe`、
-`src-tauri/target/release/bundle/nsis/`。安装包未签名，Windows SmartScreen 可能提示。
+- `Basalt.exe` — 免安装 EXE
+- `Basalt_0.1.28_x64-setup.exe` — NSIS 安装包
+- `Basalt-0.1.28-x64-portable.zip` — 便携包（含 README、LICENSE、OFL）
+- `SHA256SUMS.txt` — 校验和
 
-### 首次使用
+安装包未签名，Windows SmartScreen 可能提示。便携版仍使用
+`%APPDATA%\com.basalt.workbench` 保存数据库、附件与设置。
 
-1. 打开「供应商」，从模板创建供应商（OpenAI、Anthropic、Gemini、DeepSeek、MiniMax、
-   Kimi、Qwen、GLM、Grok、Ollama 或兼容接口）。
-2. 填写 API Key；Base URL 只填域名即可，保存时自动补全 `/v1`（Gemini 为 `/v1beta`，
-   Ollama 保持根地址）。保存并「测试连接 / 拉取模型」。
-3. 在模型卡片中填写上下文窗口，按需分组标记能力；卡片底部可设置该供应商的默认
-   对话 / 视觉 / 图像模型。真实调用成功后能力会自动标记为已验证。
-4. 在「设置 → 模型路由」中选择 Agent 执行、代码审查、图像生成与编辑模型。
-5. 添加本地项目目录，输入框默认处于 **Agent** 模式，输入任务即可开始。
-6. 使用 `/img <提示词>` 可在对话内调用独立图像供应商。
+## 首次使用
 
-API Key 只写入 Windows 凭据管理器；数据库与前端均不保存明文密钥。
+1. 打开「供应商」，从模板创建供应商并填写 API Key。
+2. Base URL 只填域名即可，保存时自动补全版本路径。
+3. 在模型卡片中确认上下文窗口与工具 / 视觉 / 思考能力。
+4. 添加本地项目目录，输入任务；Agent 会在授权范围内读取文件、执行命令并请求审批。
+5. 在「设置」中切换主题、配色与界面语言。
 
-## 界面预览
+## 安全
 
-| 工作台 | 思考强度 |
-| --- | --- |
-| ![工作台](docs/screenshots/readme-workbench.png) | ![思考强度](docs/screenshots/readme-reasoning.png) |
-| 工作区 + 会话侧栏、默认 Agent 输入框 | off / minimal / low / medium / high / xhigh / max / ultra |
-| 供应商与模板 | 外观配色 |
-| ![供应商](docs/screenshots/readme-providers.png) | ![设置](docs/screenshots/readme-settings.png) |
-| 供应商、模板与模型卡片编辑器 | 外观配色与模型路由 |
+- API Key 保存在 Windows 凭据管理器（`com.basalt.workbench`），不写入 SQLite 或普通日志。
+- Agent 写入与命令默认需要批准；危险命令、路径穿越、符号链接逃逸、项目外绝对路径会被策略拒绝。
+- 只访问你明确添加的项目目录；变更写入前会创建可审查、可撤销的快照。
 
-截图使用本地 Ollama 供应商与演示工作区，不包含真实 API Key、项目代码或个人路径。
+## 技术结构
 
-## 项目结构
-
-```
-src/                         React 前端
-  components/                工作台、聊天、时间线、Diff、终端、供应商表单等
-  views/                     Workbench / Providers / ImageStudio / Settings
-  lib/                       API 封装、Zustand store、类型、Diff 工具、Monaco 配置
-src-tauri/                   Rust 后端
-  src/providers/             多协议对话与图像适配器
-  src/agent/                 Agent Runtime、工具、系统提示
-  src/commands/              Tauri 命令边界
-  src/changes.rs             变更快照、接受 / 撤销与冲突检测
-  src/terminal.rs            ConPTY 终端管理
-  src/db.rs / secrets.rs     SQLite 与 Windows 凭据存储
-  src/events.rs              任务事件总线（SQLite + Tauri Events）
-docs/                        架构、设计、安全、测试与资源记录
+```text
+src/                    React 19 + TypeScript 界面
+  components/           聊天、任务、右侧面板、终端、输入框
+  views/                工作台、供应商、图像、设置
+  lib/                  状态、API、i18n、主题、Diff
+src-tauri/              Tauri 2 + Rust
+  src/agent/            Agent Runtime、工具、子代理、系统提示词
+  src/providers/        Chat / Responses / Anthropic / Gemini / Ollama 适配器
+  src/commands/         Tauri commands
+  src/db.rs             SQLite schema 与迁移
+docs/                   功能、设计、供应商、测试与截图
 ```
 
-## 文档
-
-- [模块架构与协议适配](docs/ARCHITECTURE.md)
-- [供应商接入指南](docs/PROVIDERS.md)
-- [模型接口自动选择](docs/MODEL_ROUTING.md)
-- [图像生成与编辑](docs/IMAGES.md)
-- [设计系统](docs/DESIGN.md)
-- [安全与权限模型](docs/SECURITY.md)
-- [开发环境、Skills 与资源检查记录](docs/SKILLS.md)
-- [自动化测试与验证记录](docs/TESTING.md)
-- [功能完成度与已知限制](docs/FEATURES.md)
-
-## 验证命令
+## 开发验证
 
 ```bash
-npx tsc --noEmit
-npx vitest run
-cd src-tauri && cargo test
+npm test -- --run                 # 23 frontend tests
+cargo test --manifest-path src-tauri/Cargo.toml   # 51 Rust tests
 ```
 
-界面验证使用隔离的 `identifier` 启动开发实例，并通过 WebView2 调试端口检查
-真实交互与请求体；详见 [TESTING.md](docs/TESTING.md)。
+当前验证记录见 [docs/TESTING.md](docs/TESTING.md)。
 
-## 安全提示
+## English
 
-- Basalt 通过审批、路径校验和危险命令策略限制 Agent，但系统 Shell 本身不是操作系统级沙箱。
-  请只在可恢复的本地项目中启用自动批准。
-- 普通聊天不会执行命令或修改文件；所有副作用都发生在明确选择的 Agent 任务中。
-- 图片远程 URL 下载仅允许 HTTPS，并拒绝本地 / 内网解析结果。
-- 不记录 API Key；请勿把密钥粘贴到对话、提示词或项目文件中。
+**Basalt** is a local-first Windows AI engineering workbench built with Tauri 2, Rust,
+React 19 and SQLite. It combines multi-provider chat, an approval-gated coding Agent,
+inline tool activity, a real terminal, change review, and image generation in one
+desktop app. The UI ships in Simplified Chinese, English, Japanese and Korean, with
+per-session cache/cost telemetry and local credential storage. See
+[Releases](https://github.com/zakolinxi/basalt-workbench/releases/latest) to download.
 
-## License
+## License & Credits
 
-MIT © 2026 林汐音（zakolinxi）。第三方字体 Inter / JetBrains Mono 使用 SIL OFL 1.1，
-许可全文见 [src/assets/fonts/OFL.txt](src/assets/fonts/OFL.txt)。
+- Code: MIT License — see [LICENSE](LICENSE).
+- Inter / JetBrains Mono: SIL OFL 1.1 — see [OFL.txt](OFL.txt).
+- App icon generated with `gpt-image-2.5-sunburst`.
