@@ -14,6 +14,7 @@ import type {
   GitStatus,
   ImageEvent,
   ImageGeneration,
+  Language,
   Message,
   OpenFileState,
   Project,
@@ -88,6 +89,7 @@ interface AppStore {
   setLayout: (patch: Partial<LayoutState>) => void;
   setTheme: (theme: ThemeMode) => Promise<void>;
   setPalette: (palette: ThemePalette) => Promise<void>;
+  setLanguage: (language: Language) => Promise<void>;
   setCornerStyle: (style: CornerStyle) => void;
   setApprovalMode: (mode: ApprovalMode) => Promise<void>;
   updateSettings: (patch: Partial<Settings>) => void;
@@ -170,6 +172,7 @@ function persistLayout(layout: LayoutState) {
 const defaultSettings: Settings = {
   theme: "dark",
   palette: "basalt",
+  language: "zh-CN",
   routing: {
     chat: { providerId: "", model: "" },
     agentPlan: { providerId: "", model: "" },
@@ -186,7 +189,7 @@ const defaultSettings: Settings = {
   chatFontSize: 14,
   showHiddenFiles: false,
   userAgent:
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.23",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.24",
 };
 
 function upsertMessage(messages: Message[], message: Message): Message[] {
@@ -368,6 +371,20 @@ export const useAppStore = create<AppStore>((set, get) => ({
       applyPalette(previous.palette);
       set({ settings: previous });
       get().notify("error", "配色保存失败", errorMessage(error));
+    }
+  },
+
+  setLanguage: async (language) => {
+    const previous = get().settings;
+    if (previous.language === language) return;
+    const settings = { ...previous, language };
+    set({ settings });
+    try {
+      const saved = await api.settingsSet(settings);
+      set({ settings: saved });
+    } catch (error) {
+      set({ settings: previous });
+      get().notify("error", "语言设置保存失败", errorMessage(error));
     }
   },
 

@@ -167,10 +167,13 @@ export function TaskActivity({ events }: { events: TaskEvent[] }) {
               <ChevronRight size={12} />
             </span>
             <span className="tool-run-label">
-              执行工具 {tools.length} 次
-              {failed > 0 ? `，其中 ${failed} 次失败` : ""}
-              {cancelled > 0 && failed === 0 ? `，${cancelled} 次取消` : ""}
-              {running ? "，正在执行" : ""}
+              {`执行工具 ${tools.length} 次${
+                failed > 0
+                  ? `，其中 ${failed} 次失败`
+                  : cancelled > 0
+                    ? `，${cancelled} 次取消`
+                    : ""
+              }${running ? "，正在执行" : ""}`}
             </span>
             {running ? <span className="spinner" style={{ width: 10, height: 10 }} /> : null}
           </button>

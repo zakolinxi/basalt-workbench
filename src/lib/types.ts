@@ -307,6 +307,7 @@ export interface Routing {
 export interface Settings {
   theme: "dark" | "light" | "system";
   palette: ThemePalette;
+  language: Language;
   routing: Routing;
   autoApproveWrites: boolean;
   autoApproveCommands: boolean;
@@ -400,6 +401,7 @@ export interface ApprovalRequest {
 export type ThemeMode = "dark" | "light" | "system";
 
 export type ThemePalette = "basalt" | "forest" | "mint" | "honey" | "parchment";
+export type Language = "zh-CN" | "en-US" | "ja-JP" | "ko-KR";
 
 export type CornerStyle = "sharp" | "round";
 

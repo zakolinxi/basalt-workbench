@@ -4,6 +4,7 @@ import { Rail } from "./components/Rail";
 import { TitlebarDrag, WindowControls } from "./components/WindowControls";
 import { Toasts } from "./components/ui";
 import { useAppStore } from "./lib/store";
+import { setLanguage, startDomTranslation } from "./lib/i18n";
 import { applyCornerStyle, applyPalette, applyTheme, watchSystemTheme } from "./lib/theme";
 import type {
   ChatEvent,
@@ -22,11 +23,20 @@ export default function App() {
   const view = useAppStore((state) => state.view);
   const theme = useAppStore((state) => state.settings.theme);
   const palette = useAppStore((state) => state.settings.palette);
+  const language = useAppStore((state) => state.settings.language);
   const cornerStyle = useAppStore((state) => state.cornerStyle);
   const chatFontSize = useAppStore((state) => state.settings.chatFontSize);
   const layout = useAppStore((state) => state.layout);
   const setLayout = useAppStore((state) => state.setLayout);
   const [retrying, setRetrying] = useState(false);
+
+  useEffect(() => {
+    startDomTranslation();
+  }, []);
+
+  useEffect(() => {
+    setLanguage(language);
+  }, [language]);
 
   useEffect(() => {
     void boot();

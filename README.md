@@ -13,6 +13,8 @@ GitHub：<https://github.com/zakolinxi/basalt-workbench>
 
 ## 核心能力
 
+- **多语言界面**：简体中文、English、日本語、한국어 即时切换；覆盖工作台、设置、
+  供应商、图像与任务界面，模型输出、代码与终端内容保持原文。
 - **多供应商、多协议**：OpenAI Chat Completions、OpenAI Responses、Anthropic Messages、
   Google Gemini、Ollama、OpenAI 兼容接口与自定义网关；协议适配器、Agent Runtime、
   Image Provider 三层解耦。模板内置当前主力模型的上下文、视觉与工具预设，并支持
@@ -69,9 +71,9 @@ npm run tauri build
 
 本机已验证产物（见 `release/`）：
 
-- `release/Basalt.exe` — 免安装 EXE（20.87 MiB）
-- `release/Basalt_0.1.23_x64-setup.exe` — NSIS 安装包（7.66 MiB）
-- `release/Basalt-0.1.23-x64-portable.zip` — 便携压缩包（9.54 MiB）
+- `release/Basalt.exe` — 免安装 EXE（20.86 MiB）
+- `release/Basalt_0.1.24_x64-setup.exe` — NSIS 安装包（7.69 MiB）
+- `release/Basalt-0.1.24-x64-portable.zip` — 便携压缩包（9.57 MiB）
 - `release/SHA256SUMS.txt` — 校验和
 
 原始构建位置：`src-tauri/target/release/basalt.exe`、

@@ -710,7 +710,9 @@ export function ProvidersView() {
                   >
                     <span className="dot" />
                     <span className="meta">
-                      <span className="name">{template.name}</span>
+                      <span className="name" data-i18n-opt-in="true">
+                        {template.name}
+                      </span>
                       <span className="detail">
                         {providerProtocolLabel(template.protocol)}
                       </span>

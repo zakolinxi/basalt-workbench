@@ -9,7 +9,8 @@ import clsx from "clsx";
 import { api, errorMessage } from "../lib/api";
 import { useAppStore } from "../lib/store";
 import { APPROVAL_OPTIONS, approvalMode, approvalPatch } from "../lib/permissions";
-import type { Route, Routing, ThemePalette } from "../lib/types";
+import type { Language, Route, Routing, ThemePalette } from "../lib/types";
+import { LANGUAGE_OPTIONS } from "../lib/i18n";
 import {
   Badge,
   Button,
@@ -79,6 +80,7 @@ export function SettingsView() {
   const saveSettings = useAppStore((state) => state.saveSettings);
   const setTheme = useAppStore((state) => state.setTheme);
   const setPalette = useAppStore((state) => state.setPalette);
+  const setInterfaceLanguage = useAppStore((state) => state.setLanguage);
   const cornerStyle = useAppStore((state) => state.cornerStyle);
   const setCornerStyle = useAppStore((state) => state.setCornerStyle);
   const dataDir = useAppStore((state) => state.dataDir);
@@ -267,6 +269,31 @@ export function SettingsView() {
                         <span className="palette-name">{palette.label}</span>
                       </button>
                     ))}
+                  </div>
+                </div>
+                <div className="setting-row">
+                  <div className="copy">
+                    <div className="title">界面语言</div>
+                    <div className="desc">
+                      切换界面文案；模型回复、代码与终端输出保持原样。
+                    </div>
+                  </div>
+                  <div className="control">
+                    <Select
+                      data-i18n-skip="true"
+                      value={settings.language}
+                      onChange={(event) =>
+                        void setInterfaceLanguage(
+                          event.target.value as Language,
+                        )
+                      }
+                    >
+                      {LANGUAGE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
                   </div>
                 </div>
                 <div className="setting-row">

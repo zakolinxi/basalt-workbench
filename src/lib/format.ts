@@ -1,10 +1,12 @@
 import type { Provider, TaskStatus } from "./types";
 
+import { getLanguage } from "./i18n";
+
 export function formatTime(value?: string | null): string {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleTimeString("zh-CN", {
+  return date.toLocaleTimeString(getLanguage(), {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -14,7 +16,7 @@ export function formatDateTime(value?: string | null): string {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("zh-CN", {
+  return date.toLocaleString(getLanguage(), {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
@@ -34,7 +36,10 @@ export function relativeTime(value?: string | null): string {
   if (hours < 24) return `${hours} 小时前`;
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days} 天前`;
-  return date.toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" });
+  return date.toLocaleDateString(getLanguage(), {
+    month: "2-digit",
+    day: "2-digit",
+  });
 }
 
 export function formatBytes(bytes: number): string {

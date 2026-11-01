@@ -521,6 +521,8 @@ pub struct Settings {
     pub theme: String,
     #[serde(default = "default_palette")]
     pub palette: String,
+    #[serde(default = "default_language")]
+    pub language: String,
     pub routing: Routing,
     pub auto_approve_writes: bool,
     pub auto_approve_commands: bool,
@@ -532,8 +534,12 @@ pub struct Settings {
     pub user_agent: String,
 }
 
+pub fn default_language() -> String {
+    "zh-CN".into()
+}
+
 pub fn default_user_agent() -> String {
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.23".into()
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36 Basalt/0.1.24".into()
 }
 
 pub const REASONING_EFFORTS: [&str; 8] = [
@@ -555,6 +561,7 @@ impl Default for Settings {
         Self {
             theme: "dark".into(),
             palette: default_palette(),
+            language: default_language(),
             routing: Routing::default(),
             auto_approve_writes: false,
             auto_approve_commands: false,

@@ -1,18 +1,16 @@
-BASALT 0.1.23 — Windows x64
+BASALT 0.1.24 — Windows x64
 ===========================
 
 Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）。
 
 本次更新
 --------
-- 森林配色改用 DULUX 90GY 21/472「绿林山居」#238E52：
-  强调色、整页绿色底调与配色卡片同步更新。
-- 移除独立任务卡片：工具批次内联到对话轮次之间，显示执行次数、失败数，
-  点击展开紧凑步骤；测试通过/未通过以 PASS / FAIL 行保留。
-- 回复完成后在输入框上方显示运行统计：模型 · 耗时 · 输出 tok/s；
-  运行中显示 Agent 状态与停止，中断/失败/取消提供继续。
-- TODO 固定在右侧面板顶部 15% 高度，仅显示前三项，超出可「显示更多」。
-- 任务代码变更列在 TODO 下方，可直接打开 Diff 或进入完整变更页。
+- 界面支持 简体中文 / English / 日本語 / 한국어 四种语言，设置页即时切换并持久化。
+- 覆盖工作台、设置、供应商、图像工作区与任务界面；模型回复、代码、
+  Diff、终端输出、文件路径与用户内容保持原文。
+- 日期、时间与相对时间按当前界面语言格式化。
+- 森林配色为 DULUX 90GY 21/472「绿林山居」#238E52。
+- 工具批次内联在对话中，测试 PASS/FAIL 与完成运行统计保持显示。
 - 统一解析各协议缓存字段：OpenAI Chat（prompt_tokens_details.cached_tokens、
   DeepSeek prompt_cache_hit_tokens）、OpenAI Responses（input_tokens_details）、
   Anthropic（缓存读取 + 写入归一化）、Gemini（cachedContentTokenCount）。
@@ -28,7 +26,7 @@ Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）�
 
 两种方式
 --------
-1. 安装版：运行 Basalt_0.1.23_x64-setup.exe，按向导安装。
+1. 安装版：运行 Basalt_0.1.24_x64-setup.exe，按向导安装。
 2. 便携版：直接运行 Basalt.exe。便携版仍使用 %APPDATA%\com.basalt.workbench
    保存数据库、附件与设置。
 
