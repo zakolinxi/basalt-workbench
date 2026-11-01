@@ -140,8 +140,8 @@ npm run tauri build
 最新发布：<https://github.com/zakolinxi/basalt-workbench/releases/latest>
 
 - `Basalt.exe` — 免安装 EXE
-- `Basalt_0.2.1_x64-setup.exe` — NSIS 安装包
-- `Basalt-0.2.1-x64-portable.zip` — 便携包（含 README、LICENSE、OFL）
+- `Basalt_0.2.2_x64-setup.exe` — NSIS 安装包
+- `Basalt-0.2.2-x64-portable.zip` — 便携包（含 README、LICENSE、OFL）
 - `SHA256SUMS.txt` — 校验和
 
 安装包未签名，Windows SmartScreen 可能提示。便携版仍使用

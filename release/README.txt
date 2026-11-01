@@ -1,10 +1,11 @@
-BASALT 0.2.1 — Windows x64
+BASALT 0.2.2 — Windows x64
 ==========================
 
 Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）。
 
 本次更新
 --------
+- 修复空会话状态中标题与品牌图标之间的错位，消除标题左侧的空白块。
 - 新增扩展工作区：统一管理 Skills、MCP 服务器、插件包与工具注册表。
 - Skill 支持导入、启停、删除与按需读取；Agent 会先加载匹配的工作流说明再执行。
 - MCP 支持 stdio 与 Streamable HTTP，包含工具发现、权限审批、连接状态与工具测试。
@@ -26,7 +27,7 @@ Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）�
 
 两种方式
 --------
-1. 安装版：运行 Basalt_0.2.1_x64-setup.exe，按向导安装。
+1. 安装版：运行 Basalt_0.2.2_x64-setup.exe，按向导安装。
 2. 便携版：直接运行 Basalt.exe。便携版仍使用 %APPDATA%\com.basalt.workbench
    保存数据库、附件、Skills、MCP 配置与设置。
 

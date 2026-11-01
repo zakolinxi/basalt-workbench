@@ -131,6 +131,11 @@ Rust 测试覆盖：
   任务 completed 后自动创建并执行第二条。
 - 移除 `.chat-scroll` 的 smooth 行为、token 更新后的重复延时滚动和 Assistant
   入场动画；改用布局同步跟随与 ResizeObserver，流式输出不再来回抖动。
+
+### 空会话标题对齐（0.2.2）
+
+- 隔离实例创建无消息会话后检查 `.brand-mark`、`h1`、`.sub` 与正文位置。
+- 品牌图标与标题顶部对齐，副标题位于标题下方，原先标题左侧的空白块消失。
 - 配色卡片：玄武 / 森林 / 薄荷 / 蜜蜂 / 羊皮纸，深浅主题下整页背景、表面、强调色、460ms 过渡与持久化。
 - 思考强度选择器 8 档、会话持久化与各协议请求字段。
 - Agent 任务创建、联网搜索、网页读取、只读子代理与时间线输出。
@@ -167,10 +172,10 @@ Rust 测试覆盖：
 
 | 产物 | 结果 |
 | --- | --- |
-| `release/Basalt.exe` | 构建成功（23,377,408 字节，约 22.30 MiB） |
-| `release/Basalt_0.2.1_x64-setup.exe` | NSIS 安装包构建成功（8.11 MiB） |
-| `release/Basalt-0.2.1-x64-portable.zip` | 便携压缩包构建成功（9.84 MiB） |
-| 发布 EXE 冒烟 | 文件版本 0.2.1；Skills、MCP、插件包与工具注册表在隔离实例验证 |
+| `release/Basalt.exe` | 构建成功（23,377,920 字节，约 22.30 MiB） |
+| `release/Basalt_0.2.2_x64-setup.exe` | NSIS 安装包构建成功（8.11 MiB） |
+| `release/Basalt-0.2.2-x64-portable.zip` | 便携压缩包构建成功（9.84 MiB） |
+| 发布 EXE 冒烟 | 文件版本 0.2.2；空会话标题与品牌图标对齐已修正 |
 | 应用图标 | `gpt-image-2.5-sunburst` 生成 1254px 源图，透明圆角，`tauri icon` 生成全套各平台图标 |
 | 首次启动 | 成功；窗口 “Basalt Workbench”；数据目录正常创建 |
 | 遥测 / 网络 | 启动不联网；仅供应商请求、Agent 联网工具与用户配置的 MCP 服务器会访问外部服务 |
