@@ -1,20 +1,17 @@
-BASALT 0.1.17 — Windows x64
+BASALT 0.1.18 — Windows x64
 ===========================
 
 Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）。
 
 本次更新
 --------
-- 新增模型接口自动选择：首次成功调用后，后台探测同一供应商可用的
-  OpenAI Chat / Responses 端点（其他协议供应商使用自身协议）。
-- 内置模型接口库：按模型家族给出推荐协议、成本档、速度档与来源；
-  覆盖 OpenAI、Anthropic、Gemini、DeepSeek、MiniMax/Kimi/Qwen/GLM、Grok、
-  Ollama 等。
-- 探测请求极小（max_tokens=8、非流式、5–20 秒），按实测延迟选择；
-  若库推荐协议在最快结果 +60ms 内则优先推荐协议（缓存/工具更友好）。
-- 结果写入 model_endpoints；后续聊天、Agent、代码审查、子代理自动使用。
-- 供应商模型卡片显示自动接口、延迟、成本/速度档，并可手动「检测接口」。
-- 只在当前供应商 / base URL / API Key 内选择协议，不会擅自切换其他账户。
+- 输入框状态栏新增缓存用量条：按供应商 + 模型累计输入 tokens 与缓存命中率，
+  使用数据库图标展示，悬停可查看缓存命中量、输出 tokens 与请求次数。
+- 统一解析各协议缓存字段：OpenAI Chat（prompt_tokens_details.cached_tokens、
+  DeepSeek prompt_cache_hit_tokens）、OpenAI Responses（input_tokens_details）、
+  Anthropic（缓存读取 + 写入归一化）、Gemini（cachedContentTokenCount）。
+- OpenAI Chat 流式请求自动携带 stream_options.include_usage，确保能收到 usage。
+- 缓存数据写入本地 usage_stats 表，删除供应商或移除模型时同步清理。
 
 运行要求
 --------
@@ -25,7 +22,7 @@ Basalt 是一个本地优先的 AI 编程工作台（Tauri 2 + React + Rust）�
 
 两种方式
 --------
-1. 安装版：运行 Basalt_0.1.17_x64-setup.exe，按向导安装。
+1. 安装版：运行 Basalt_0.1.18_x64-setup.exe，按向导安装。
 2. 便携版：直接运行 Basalt.exe。便携版仍使用 %APPDATA%\com.basalt.workbench
    保存数据库、附件与设置。
 

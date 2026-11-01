@@ -95,10 +95,43 @@ pub enum ProviderEvent {
     Usage {
         input_tokens: Option<u64>,
         output_tokens: Option<u64>,
+        cached_tokens: Option<u64>,
     },
     Done {
         stop_reason: Option<String>,
     },
+}
+
+/// Adapters may emit several cumulative usage snapshots per request. Keeping the
+/// maximum per field yields one final total without double counting.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct UsageTotals {
+    pub input_tokens: u64,
+    pub output_tokens: u64,
+    pub cached_tokens: u64,
+}
+
+impl UsageTotals {
+    pub fn merge(
+        &mut self,
+        input_tokens: Option<u64>,
+        output_tokens: Option<u64>,
+        cached_tokens: Option<u64>,
+    ) {
+        if let Some(value) = input_tokens {
+            self.input_tokens = self.input_tokens.max(value);
+        }
+        if let Some(value) = output_tokens {
+            self.output_tokens = self.output_tokens.max(value);
+        }
+        if let Some(value) = cached_tokens {
+            self.cached_tokens = self.cached_tokens.max(value);
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.input_tokens == 0 && self.output_tokens == 0 && self.cached_tokens == 0
+    }
 }
 
 #[derive(Clone)]
@@ -321,6 +354,24 @@ pub struct ImageOutput {
     pub width: Option<u32>,
     pub height: Option<u32>,
     pub mock: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::UsageTotals;
+
+    #[test]
+    fn usage_totals_keep_latest_snapshot_per_field() {
+        let mut usage = UsageTotals::default();
+        usage.merge(Some(1000), Some(5), Some(800));
+        usage.merge(None, Some(120), None);
+        usage.merge(Some(900), None, Some(850));
+        assert_eq!(usage.input_tokens, 1000);
+        assert_eq!(usage.output_tokens, 120);
+        assert_eq!(usage.cached_tokens, 850);
+        assert!(!usage.is_empty());
+        assert!(UsageTotals::default().is_empty());
+    }
 }
 
 #[async_trait]

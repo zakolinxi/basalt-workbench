@@ -75,6 +75,19 @@ pub fn messages_to_json(messages: &[ChatMessage]) -> Value {
     Value::Array(out)
 }
 
+fn usage_fields(usage: &Value) -> (Option<u64>, Option<u64>, Option<u64>) {
+    let input = usage.get("prompt_tokens").and_then(|v| v.as_u64());
+    let output = usage.get("completion_tokens").and_then(|v| v.as_u64());
+    let cached = usage
+        .get("prompt_tokens_details")
+        .and_then(|details| details.get("cached_tokens"))
+        .and_then(|v| v.as_u64())
+        // DeepSeek 及部分兼容网关直接返回缓存命中数。
+        .or_else(|| usage.get("prompt_cache_hit_tokens").and_then(|v| v.as_u64()))
+        .or_else(|| usage.get("cache_read_input_tokens").and_then(|v| v.as_u64()));
+    (input, output, cached)
+}
+
 pub fn tools_to_json(tools: &[ToolSchema]) -> Value {
     Value::Array(
         tools
@@ -150,6 +163,10 @@ impl ChatAdapter for OpenAiChatAdapter {
             "messages": messages_to_json(&req.messages),
             "stream": stream
         });
+        if stream {
+            // 让 OpenAI 兼容流式响应末尾带上 usage，缓存统计依赖它。
+            body["stream_options"] = json!({"include_usage": true});
+        }
         if !req.tools.is_empty() {
             body["tools"] = tools_to_json(&req.tools);
             body["tool_choice"] = json!("auto");
@@ -290,9 +307,11 @@ impl ChatAdapter for OpenAiChatAdapter {
                 }
             }
             if let Some(usage) = value.get("usage") {
+                let (input_tokens, output_tokens, cached_tokens) = usage_fields(usage);
                 let _ = emit.send(ProviderEvent::Usage {
-                    input_tokens: usage.get("prompt_tokens").and_then(|v| v.as_u64()),
-                    output_tokens: usage.get("completion_tokens").and_then(|v| v.as_u64()),
+                    input_tokens,
+                    output_tokens,
+                    cached_tokens,
                 });
             }
             let _ = emit.send(ProviderEvent::Done {
@@ -355,9 +374,11 @@ impl ChatAdapter for OpenAiChatAdapter {
             }
             if let Some(usage) = value.get("usage") {
                 if !usage.is_null() {
+                    let (input_tokens, output_tokens, cached_tokens) = usage_fields(usage);
                     let _ = emit.send(ProviderEvent::Usage {
-                        input_tokens: usage.get("prompt_tokens").and_then(|v| v.as_u64()),
-                        output_tokens: usage.get("completion_tokens").and_then(|v| v.as_u64()),
+                        input_tokens,
+                        output_tokens,
+                        cached_tokens,
                     });
                 }
             }
@@ -372,5 +393,31 @@ impl ChatAdapter for OpenAiChatAdapter {
         result?;
         let _ = emit.send(ProviderEvent::Done { stop_reason });
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::usage_fields;
+    use serde_json::json;
+
+    #[test]
+    fn reads_openai_cached_tokens() {
+        let usage = json!({
+            "prompt_tokens": 1540,
+            "completion_tokens": 32,
+            "prompt_tokens_details": {"cached_tokens": 1408}
+        });
+        assert_eq!(usage_fields(&usage), (Some(1540), Some(32), Some(1408)));
+    }
+
+    #[test]
+    fn reads_deepseek_cache_hit_tokens() {
+        let usage = json!({
+            "prompt_tokens": 900,
+            "completion_tokens": 12,
+            "prompt_cache_hit_tokens": 768
+        });
+        assert_eq!(usage_fields(&usage), (Some(900), Some(12), Some(768)));
     }
 }

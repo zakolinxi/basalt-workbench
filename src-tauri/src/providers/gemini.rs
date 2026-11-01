@@ -321,6 +321,9 @@ impl ChatAdapter for GeminiAdapter {
                 let _ = emit.send(ProviderEvent::Usage {
                     input_tokens: usage.get("promptTokenCount").and_then(|v| v.as_u64()),
                     output_tokens: usage.get("candidatesTokenCount").and_then(|v| v.as_u64()),
+                    cached_tokens: usage
+                        .get("cachedContentTokenCount")
+                        .and_then(|v| v.as_u64()),
                 });
             }
             let _ = emit.send(ProviderEvent::Done {
@@ -360,6 +363,9 @@ impl ChatAdapter for GeminiAdapter {
                 let _ = emit.send(ProviderEvent::Usage {
                     input_tokens: usage.get("promptTokenCount").and_then(|v| v.as_u64()),
                     output_tokens: usage.get("candidatesTokenCount").and_then(|v| v.as_u64()),
+                    cached_tokens: usage
+                        .get("cachedContentTokenCount")
+                        .and_then(|v| v.as_u64()),
                 });
             }
             Ok(false)

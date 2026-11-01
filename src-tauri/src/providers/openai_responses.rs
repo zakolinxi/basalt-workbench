@@ -57,6 +57,18 @@ fn input_items(messages: &[super::ChatMessage]) -> Value {
     Value::Array(out)
 }
 
+fn usage_fields(usage: &Value) -> (Option<u64>, Option<u64>, Option<u64>) {
+    let cached = usage
+        .get("input_tokens_details")
+        .and_then(|details| details.get("cached_tokens"))
+        .and_then(|v| v.as_u64());
+    (
+        usage.get("input_tokens").and_then(|v| v.as_u64()),
+        usage.get("output_tokens").and_then(|v| v.as_u64()),
+        cached,
+    )
+}
+
 fn tools_json(tools: &[super::ToolSchema]) -> Value {
     Value::Array(
         tools
@@ -228,9 +240,11 @@ impl ChatAdapter for OpenAiResponsesAdapter {
                 }
             }
             if let Some(usage) = value.get("usage") {
+                let (input_tokens, output_tokens, cached_tokens) = usage_fields(usage);
                 let _ = emit.send(ProviderEvent::Usage {
-                    input_tokens: usage.get("input_tokens").and_then(|v| v.as_u64()),
-                    output_tokens: usage.get("output_tokens").and_then(|v| v.as_u64()),
+                    input_tokens,
+                    output_tokens,
+                    cached_tokens,
                 });
             }
             let status = value
@@ -290,9 +304,11 @@ impl ChatAdapter for OpenAiResponsesAdapter {
                 "response.completed" => {
                     if let Some(response) = value.get("response") {
                         if let Some(usage) = response.get("usage") {
+                            let (input_tokens, output_tokens, cached_tokens) = usage_fields(usage);
                             let _ = emit.send(ProviderEvent::Usage {
-                                input_tokens: usage.get("input_tokens").and_then(|v| v.as_u64()),
-                                output_tokens: usage.get("output_tokens").and_then(|v| v.as_u64()),
+                                input_tokens,
+                                output_tokens,
+                                cached_tokens,
                             });
                         }
                         stop_reason = response

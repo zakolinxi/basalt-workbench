@@ -13,11 +13,11 @@ use crate::error::{AppError, AppResult};
 use crate::files::path_is_within;
 use crate::messaging;
 use crate::models::{
-    Attachment, ChatEvent, ContextUsage, Message, Session, CAP_UNSUPPORTED, CAP_VERIFIED,
+    Attachment, ChatEvent, ContextUsage, Message, Session, UsageStats, CAP_UNSUPPORTED, CAP_VERIFIED,
 };
 use crate::providers::{
     capabilities_for, chat_adapter_for, load_chat_runtime, mark_capabilities, ChatMessage, ChatRequest,
-    ProviderEvent,
+    ProviderEvent, UsageTotals,
 };
 use crate::state::AppState;
 
@@ -522,28 +522,48 @@ async fn chat_send_inner(
             .await
     });
     let mut text = String::new();
+    let mut usage = UsageTotals::default();
     while let Some(event) = rx.recv().await {
-        if let ProviderEvent::TextDelta(delta) = event {
-            text.push_str(&delta);
-            crate::events::emit(
-                &state.app,
-                crate::events::EVENT_CHAT,
-                ChatEvent {
-                    request_id: input.request_id.clone(),
-                    session_id: session.id.clone(),
-                    task_id: None,
-                    kind: "delta".into(),
-                    text: Some(delta),
-                    message_id: Some(assistant_message_id.clone()),
-                    message: None,
-                    error: None,
-                },
-            );
+        match event {
+            ProviderEvent::TextDelta(delta) => {
+                text.push_str(&delta);
+                crate::events::emit(
+                    &state.app,
+                    crate::events::EVENT_CHAT,
+                    ChatEvent {
+                        request_id: input.request_id.clone(),
+                        session_id: session.id.clone(),
+                        task_id: None,
+                        kind: "delta".into(),
+                        text: Some(delta),
+                        message_id: Some(assistant_message_id.clone()),
+                        message: None,
+                        error: None,
+                    },
+                );
+            }
+            ProviderEvent::Usage {
+                input_tokens,
+                output_tokens,
+                cached_tokens,
+            } => usage.merge(input_tokens, output_tokens, cached_tokens),
+            ProviderEvent::ToolCallDelta { .. } | ProviderEvent::Done { .. } => {}
         }
     }
     let provider_result = handle
         .await
         .map_err(|e| AppError::msg(format!("对话任务异常：{e}")))?;
+    if !usage.is_empty() {
+        let conn = state.db();
+        let _ = crate::db::record_usage(
+            &conn,
+            &input.provider_id,
+            &model,
+            usage.input_tokens,
+            usage.cached_tokens,
+            usage.output_tokens,
+        );
+    }
 
     match provider_result {
         Ok(()) => {
@@ -732,6 +752,20 @@ fn estimate_tokens(text: &str) -> u64 {
         }
     }
     (cjk as f64 * 0.9 + other as f64 / 4.0).ceil() as u64
+}
+
+#[tauri::command]
+pub fn usage_stats(
+    state: State<'_, AppState>,
+    provider_id: String,
+    model: String,
+) -> AppResult<UsageStats> {
+    let conn = state.db();
+    Ok(crate::db::get_usage_stats(
+        &conn,
+        &provider_id,
+        model.trim(),
+    ))
 }
 
 #[tauri::command]

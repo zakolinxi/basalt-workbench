@@ -140,6 +140,16 @@ CREATE TABLE IF NOT EXISTS model_endpoints (
   checked_at TEXT NOT NULL,
   PRIMARY KEY(provider_id, model)
 );
+CREATE TABLE IF NOT EXISTS usage_stats (
+  provider_id TEXT NOT NULL,
+  model TEXT NOT NULL,
+  input_tokens INTEGER NOT NULL DEFAULT 0,
+  cached_tokens INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  requests INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY(provider_id, model)
+);
 CREATE TABLE IF NOT EXISTS changes (
   id TEXT PRIMARY KEY,
   task_id TEXT NOT NULL,
@@ -476,6 +486,79 @@ pub fn save_model_endpoint(conn: &Connection, endpoint: &ModelEndpoint) -> AppRe
     Ok(())
 }
 
+pub fn record_usage(
+    conn: &Connection,
+    provider_id: &str,
+    model: &str,
+    input_tokens: u64,
+    cached_tokens: u64,
+    output_tokens: u64,
+) -> AppResult<()> {
+    conn.execute(
+        "INSERT INTO usage_stats(provider_id, model, input_tokens, cached_tokens, output_tokens, requests, updated_at)
+         VALUES(?1, ?2, ?3, ?4, ?5, 1, ?6)
+         ON CONFLICT(provider_id, model) DO UPDATE SET
+           input_tokens = input_tokens + excluded.input_tokens,
+           cached_tokens = cached_tokens + excluded.cached_tokens,
+           output_tokens = output_tokens + excluded.output_tokens,
+           requests = requests + 1,
+           updated_at = excluded.updated_at",
+        params![
+            provider_id,
+            model,
+            input_tokens as i64,
+            cached_tokens as i64,
+            output_tokens as i64,
+            now()
+        ],
+    )?;
+    Ok(())
+}
+
+pub fn get_usage_stats(conn: &Connection, provider_id: &str, model: &str) -> UsageStats {
+    conn.query_row(
+        "SELECT input_tokens, cached_tokens, output_tokens, requests, updated_at
+         FROM usage_stats WHERE provider_id = ?1 AND model = ?2",
+        params![provider_id, model],
+        |row| {
+            Ok(UsageStats {
+                provider_id: provider_id.to_string(),
+                model: model.to_string(),
+                input_tokens: row.get::<_, i64>(0)?.max(0) as u64,
+                cached_tokens: row.get::<_, i64>(1)?.max(0) as u64,
+                output_tokens: row.get::<_, i64>(2)?.max(0) as u64,
+                requests: row.get::<_, i64>(3)?.max(0) as u64,
+                updated_at: row.get(4)?,
+            })
+        },
+    )
+    .unwrap_or_else(|_| UsageStats {
+        provider_id: provider_id.to_string(),
+        model: model.to_string(),
+        input_tokens: 0,
+        cached_tokens: 0,
+        output_tokens: 0,
+        requests: 0,
+        updated_at: None,
+    })
+}
+
+pub fn clear_usage_stats(conn: &Connection, provider_id: &str) -> AppResult<()> {
+    conn.execute(
+        "DELETE FROM usage_stats WHERE provider_id = ?1",
+        [provider_id],
+    )?;
+    Ok(())
+}
+
+pub fn clear_usage_stats_model(conn: &Connection, provider_id: &str, model: &str) -> AppResult<()> {
+    conn.execute(
+        "DELETE FROM usage_stats WHERE provider_id = ?1 AND model = ?2",
+        params![provider_id, model],
+    )?;
+    Ok(())
+}
+
 pub fn clear_model_endpoints(conn: &Connection, provider_id: &str) -> AppResult<()> {
     conn.execute(
         "DELETE FROM model_endpoints WHERE provider_id = ?1",
@@ -769,6 +852,27 @@ mod tests {
         let settings = load_settings(&conn);
         assert!(settings.routing.chat.provider_id.is_empty());
         assert!(settings.routing.chat.model.is_empty());
+    }
+
+    #[test]
+    fn accumulates_and_clears_usage_stats() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = open_db(dir.path()).unwrap();
+        record_usage(&conn, "p1", "m1", 1000, 800, 50).unwrap();
+        record_usage(&conn, "p1", "m1", 2000, 1900, 80).unwrap();
+        let stats = get_usage_stats(&conn, "p1", "m1");
+        assert_eq!(stats.input_tokens, 3000);
+        assert_eq!(stats.cached_tokens, 2700);
+        assert_eq!(stats.output_tokens, 130);
+        assert_eq!(stats.requests, 2);
+        assert!(stats.updated_at.is_some());
+        clear_usage_stats_model(&conn, "p1", "m1").unwrap();
+        let cleared = get_usage_stats(&conn, "p1", "m1");
+        assert_eq!(cleared.requests, 0);
+        assert_eq!(cleared.input_tokens, 0);
+        record_usage(&conn, "p2", "m2", 10, 5, 2).unwrap();
+        clear_usage_stats(&conn, "p2").unwrap();
+        assert_eq!(get_usage_stats(&conn, "p2", "m2").requests, 0);
     }
 
     #[test]

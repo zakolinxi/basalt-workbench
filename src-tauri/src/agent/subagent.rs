@@ -9,7 +9,7 @@ use crate::error::{AppError, AppResult};
 use crate::models::{Task, CAP_UNSUPPORTED};
 use crate::providers::{
     capabilities_for, chat_adapter_for, load_chat_runtime, ChatMessage, ChatRequest, ProviderEvent,
-    ProviderToolCall,
+    ProviderToolCall, UsageTotals,
 };
 use crate::state::AppState;
 
@@ -125,6 +125,7 @@ pub async fn run(
         });
         let mut text = String::new();
         let mut calls: BTreeMap<usize, AccCall> = BTreeMap::new();
+        let mut usage = UsageTotals::default();
         while let Some(event) = rx.recv().await {
             match event {
                 ProviderEvent::TextDelta(delta) => text.push_str(&delta),
@@ -143,12 +144,28 @@ pub async fn run(
                     }
                     acc.args.push_str(&args_delta);
                 }
-                ProviderEvent::Usage { .. } | ProviderEvent::Done { .. } => {}
+                ProviderEvent::Usage {
+                    input_tokens,
+                    output_tokens,
+                    cached_tokens,
+                } => usage.merge(input_tokens, output_tokens, cached_tokens),
+                ProviderEvent::Done { .. } => {}
             }
         }
         handle
             .await
             .map_err(|e| AppError::msg(format!("子代理执行异常：{e}")))??;
+        if !usage.is_empty() {
+            let conn = state.db();
+            let _ = crate::db::record_usage(
+                &conn,
+                &task.provider_id,
+                &model,
+                usage.input_tokens,
+                usage.cached_tokens,
+                usage.output_tokens,
+            );
+        }
         if cancel.is_cancelled() {
             return Err(AppError::Cancelled);
         }

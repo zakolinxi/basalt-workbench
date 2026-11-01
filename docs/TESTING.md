@@ -1,6 +1,6 @@
 # 自动化测试与验证记录
 
-验证日期：2026-10-27，更新：2026-10-29
+验证日期：2026-10-27，更新：2026-11-01
 环境：Windows 10.0.26300 x64 · Node 26.1.0 · Rust 1.99.1 (MSVC) · WebView2 155
 
 > 2026-10-28 起内置 Mock 供应商与 Mock 演示沙盒已移除；本文中涉及 Mock 的
@@ -14,7 +14,7 @@
 | 前端单元测试 | `npx vitest run` | 18 passed（Diff / 权限 / Base URL / 工具格式化） |
 | 前端生产构建 | `npm run build` | 通过，生成 `dist/` |
 | Rust 编译检查 | `cargo check` | 通过 |
-| Rust 测试 | `cargo test` | **40 passed, 0 failed** |
+| Rust 测试 | `cargo test` | **46 passed, 0 failed** |
 
 前端测试覆盖 Diff、权限、Base URL 归一化与工具名称/目标格式化。
 
@@ -30,7 +30,10 @@ Rust 测试覆盖：
 - `model_interfaces`：模型家族推荐协议、OpenAI Chat/Responses 候选、
   非 OpenAI 供应商候选限制。
 - `agent/web`：HTML 清理与实体解码、DDG/Bing 结果解析、内网 URL 拒绝。
-- `db`：模板种子、无 Mock、设置往返持久化。
+- `providers/*` 缓存用量：OpenAI `prompt_tokens_details.cached_tokens`、
+  DeepSeek `prompt_cache_hit_tokens`、Anthropic 缓存读写归一化、
+  `message_delta` 缺少输入字段时不清零、累计快照按字段取最大值。
+- `db`：模板种子、无 Mock、设置往返持久化、缓存用量累加与清理。
 - `git`：真实临时仓库的 untracked 状态、HEAD ↔ 工作区 Diff、分支列表、切换与新建。
 - `agent/tools`：真实 PowerShell 命令执行、stdout/stderr 捕获、退出码、
   取消后进程终止。
@@ -51,6 +54,9 @@ Rust 测试覆盖：
 - 上下文占用条：系统提示 / 消息 / 工具 / 输入 / 剩余容量明细与实际 tokens 上限。
 - 自动接口选择：本地假服务同时提供 Chat/Responses；首次调用走 Chat，后台探测记录
   Responses，第二次调用实际命中 `/responses`；手动「检测接口」与持久化已验证。
+- 缓存统计：本地假服务的 Chat 流返回 `cached_tokens`，首轮显示 `152.3K tok ·
+  缓存命中 98.3%`；后台切到 Responses 后第二轮累计为 `457K tok · 98.3%`、
+  2 次请求；确认流式 Chat 请求携带 `stream_options.include_usage`。
 - 配色卡片：玄武 / 森林 / 薄荷 / 蜜蜂 / 羊皮纸，深浅主题下整页背景、表面、强调色、460ms 过渡与持久化。
 - 思考强度选择器 8 档、会话持久化与各协议请求字段。
 - Agent 任务创建、联网搜索、网页读取、只读子代理与时间线输出。
@@ -84,9 +90,10 @@ Rust 测试覆盖：
 
 | 产物 | 结果 |
 | --- | --- |
-| `release/Basalt.exe` | 构建成功（21,738,496 字节，约 20.73 MiB） |
-| `release/Basalt_0.1.17_x64-setup.exe` | NSIS 安装包构建成功（7.64 MiB） |
-| `release/Basalt-0.1.17-x64-portable.zip` | 便携压缩包构建成功（9.23 MiB） |
+| `release/Basalt.exe` | 构建成功（21,788,160 字节，约 20.78 MiB） |
+| `release/Basalt_0.1.18_x64-setup.exe` | NSIS 安装包构建成功（7.64 MiB） |
+| `release/Basalt-0.1.18-x64-portable.zip` | 便携压缩包构建成功（9.52 MiB） |
+| 发布 EXE 冒烟 | `app_info` 返回 0.1.18，窗口正常关闭，退出码 0 |
 | 首次启动 | 成功；窗口 “Basalt Workbench”；数据目录正常创建 |
 | 遥测 / 网络 | 启动不联网；仅供应商请求与 Agent 联网工具会访问外部服务 |
 | 静默安装 | `/S /D=<temp>`，退出码 0 |

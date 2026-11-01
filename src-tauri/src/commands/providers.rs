@@ -275,6 +275,15 @@ fn save_provider(state: &AppState, input: ProviderInput) -> AppResult<Provider> 
             )?;
         }
     }
+    let stats_rows = conn
+        .prepare("SELECT model FROM usage_stats WHERE provider_id = ?1")?
+        .query_map([&id], |row| row.get::<_, String>(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+    for removed in stats_rows {
+        if !retained.contains(removed.as_str()) {
+            crate::db::clear_usage_stats_model(&conn, &id, &removed)?;
+        }
+    }
     let provider = get_provider_row(&conn, &id)?;
     Ok(attach_key(provider))
 }
@@ -322,6 +331,7 @@ pub fn provider_delete(state: State<'_, AppState>, provider_id: String) -> AppRe
         get_provider_row(&conn, &provider_id)?;
         conn.execute("DELETE FROM providers WHERE id = ?1", [&provider_id])?;
         crate::db::clear_model_endpoints(&conn, &provider_id)?;
+        crate::db::clear_usage_stats(&conn, &provider_id)?;
     }
     let _ = secrets::delete_api_key(&provider_id);
     {

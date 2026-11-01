@@ -2648,6 +2648,30 @@ a {
 .composer-alert.warn {
   cursor: default;
 }
+.composer-cache {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  padding: 2px 6px;
+  margin: -2px 0;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--fg-3);
+  white-space: nowrap;
+  cursor: default;
+}
+.composer-cache svg {
+  flex: none;
+  opacity: 0.8;
+}
+.composer-cache-sep {
+  color: var(--line-strong);
+}
+.composer-cache-rate.hot {
+  color: var(--ok);
+}
 .composer-context {
   position: relative;
   flex: none;

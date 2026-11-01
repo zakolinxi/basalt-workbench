@@ -257,6 +257,16 @@ export interface ContextUsage {
   limit?: number | null;
 }
 
+export interface UsageStats {
+  providerId: string;
+  model: string;
+  inputTokens: number;
+  cachedTokens: number;
+  outputTokens: number;
+  requests: number;
+  updatedAt?: string | null;
+}
+
 export interface ModelEndpointView {
   model: string;
   protocol: string;

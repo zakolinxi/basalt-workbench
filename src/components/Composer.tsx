@@ -5,6 +5,7 @@ import {
   Brain,
   Check,
   ChevronDown,
+  Database,
   Eye,
   FileText,
   Folder,
@@ -33,6 +34,7 @@ import type {
   ContextUsage,
   Provider,
   ReasoningEffort,
+  UsageStats,
 } from "../lib/types";
 import { Badge, IconButton, MediaThumb, useClickOutside } from "./ui";
 
@@ -177,6 +179,7 @@ export function Composer() {
   const [contextUsage, setContextUsage] = useState<ContextUsage | null>(null);
   const [contextOpen, setContextOpen] = useState(false);
   const [contextLoading, setContextLoading] = useState(false);
+  const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modelPickerRef = useClickOutside<HTMLDivElement>(
     () => setModelPickerOpen(false),
@@ -256,6 +259,7 @@ export function Composer() {
     setReasoningOpen(false);
     setContextOpen(false);
     setContextUsage(null);
+    setUsageStats(null);
   }, [session?.id]);
 
   useEffect(() => {
@@ -298,6 +302,28 @@ export function Composer() {
       window.clearTimeout(timer);
     };
   }, [session?.id, providerId, model, mode, messages.length]);
+
+  useEffect(() => {
+    if (!providerId || !model.trim()) {
+      setUsageStats(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      api
+        .usageStats(providerId, model.trim())
+        .then((stats) => {
+          if (!cancelled) setUsageStats(stats);
+        })
+        .catch(() => {
+          if (!cancelled) setUsageStats(null);
+        });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [session?.id, providerId, model, messages.length, activeChat]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -584,6 +610,25 @@ export function Composer() {
   ].filter((segment) => segment.value > 0);
   const contextRemaining =
     contextLimit !== null ? Math.max(0, contextLimit - contextTotal) : null;
+  const cacheRate =
+    usageStats && usageStats.inputTokens > 0
+      ? Math.min(
+          100,
+          Math.round(
+            (Math.min(usageStats.cachedTokens, usageStats.inputTokens) /
+              usageStats.inputTokens) *
+              1000,
+          ) / 10,
+        )
+      : null;
+  const cacheTitle = usageStats
+    ? [
+        `累计输入 ${usageStats.inputTokens.toLocaleString()} tokens`,
+        `缓存命中 ${usageStats.cachedTokens.toLocaleString()} tokens`,
+        `输出 ${usageStats.outputTokens.toLocaleString()} tokens · ${usageStats.requests} 次请求`,
+        "按当前供应商与模型累计",
+      ].join("\n")
+    : "";
 
   return (
     <div
@@ -1021,6 +1066,23 @@ export function Composer() {
                 <span className="composer-alert warn">未设置 API Key</span>
               ) : null}
             </div>
+            {usageStats && usageStats.requests > 0 ? (
+              <div className="composer-cache" title={cacheTitle}>
+                <Database size={11} />
+                <span className="composer-cache-value">
+                  {compactContext(usageStats.inputTokens)} tok
+                </span>
+                <span className="composer-cache-sep">·</span>
+                <span
+                  className={clsx(
+                    "composer-cache-rate",
+                    cacheRate !== null && cacheRate >= 50 && "hot",
+                  )}
+                >
+                  缓存命中 {cacheRate === null ? "—" : `${cacheRate}%`}
+                </span>
+              </div>
+            ) : null}
             {session ? (
               <div className="composer-context" ref={contextRef}>
                 <button

@@ -245,6 +245,7 @@ fn emit_usage(value: &Value, emit: &UnboundedSender<ProviderEvent>) {
         let _ = emit.send(ProviderEvent::Usage {
             input_tokens: value.get("prompt_eval_count").and_then(|v| v.as_u64()),
             output_tokens: value.get("eval_count").and_then(|v| v.as_u64()),
+            cached_tokens: None,
         });
     }
 }

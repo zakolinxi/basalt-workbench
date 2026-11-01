@@ -98,6 +98,27 @@ fn convert_messages(messages: &[super::ChatMessage]) -> (Option<String>, Value) 
     (system, Value::Array(messages))
 }
 
+fn usage_fields(usage: &Value) -> (Option<u64>, Option<u64>, Option<u64>) {
+    let base = usage.get("input_tokens").and_then(|v| v.as_u64());
+    let cache_read = usage
+        .get("cache_read_input_tokens")
+        .and_then(|v| v.as_u64());
+    let cache_write = usage
+        .get("cache_creation_input_tokens")
+        .and_then(|v| v.as_u64());
+    // Anthropic 的 input_tokens 不含缓存读写，这里统一成完整输入量。
+    let input = if base.is_none() && cache_read.is_none() && cache_write.is_none() {
+        None
+    } else {
+        Some(base.unwrap_or(0) + cache_read.unwrap_or(0) + cache_write.unwrap_or(0))
+    };
+    (
+        input,
+        usage.get("output_tokens").and_then(|v| v.as_u64()),
+        cache_read,
+    )
+}
+
 fn tools_json(tools: &[super::ToolSchema]) -> Value {
     Value::Array(
         tools
@@ -259,9 +280,11 @@ impl ChatAdapter for AnthropicAdapter {
                 }
             }
             if let Some(usage) = value.get("usage") {
+                let (input_tokens, output_tokens, cached_tokens) = usage_fields(usage);
                 let _ = emit.send(ProviderEvent::Usage {
-                    input_tokens: usage.get("input_tokens").and_then(|v| v.as_u64()),
-                    output_tokens: usage.get("output_tokens").and_then(|v| v.as_u64()),
+                    input_tokens,
+                    output_tokens,
+                    cached_tokens,
                 });
             }
             let _ = emit.send(ProviderEvent::Done {
@@ -285,9 +308,11 @@ impl ChatAdapter for AnthropicAdapter {
                         .get("message")
                         .and_then(|m| m.get("usage"))
                     {
+                        let (input_tokens, output_tokens, cached_tokens) = usage_fields(usage);
                         let _ = emit.send(ProviderEvent::Usage {
-                            input_tokens: usage.get("input_tokens").and_then(|v| v.as_u64()),
-                            output_tokens: usage.get("output_tokens").and_then(|v| v.as_u64()),
+                            input_tokens,
+                            output_tokens,
+                            cached_tokens,
                         });
                     }
                 }
@@ -342,9 +367,11 @@ impl ChatAdapter for AnthropicAdapter {
                             .map(str::to_string);
                     }
                     if let Some(usage) = value.get("usage") {
+                        let (input_tokens, output_tokens, cached_tokens) = usage_fields(usage);
                         let _ = emit.send(ProviderEvent::Usage {
-                            input_tokens: None,
-                            output_tokens: usage.get("output_tokens").and_then(|v| v.as_u64()),
+                            input_tokens,
+                            output_tokens,
+                            cached_tokens,
                         });
                     }
                 }
@@ -363,5 +390,28 @@ impl ChatAdapter for AnthropicAdapter {
         result?;
         let _ = emit.send(ProviderEvent::Done { stop_reason });
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::usage_fields;
+    use serde_json::json;
+
+    #[test]
+    fn normalizes_anthropic_cache_tokens() {
+        let usage = json!({
+            "input_tokens": 220,
+            "cache_read_input_tokens": 3100,
+            "cache_creation_input_tokens": 400,
+            "output_tokens": 64
+        });
+        assert_eq!(usage_fields(&usage), (Some(3720), Some(64), Some(3100)));
+    }
+
+    #[test]
+    fn ignores_missing_input_fields_on_message_delta() {
+        let usage = json!({"output_tokens": 88});
+        assert_eq!(usage_fields(&usage), (None, Some(88), None));
     }
 }

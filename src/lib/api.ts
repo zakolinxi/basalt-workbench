@@ -19,6 +19,7 @@ import type {
   Settings,
   Task,
   TaskDetail,
+  UsageStats,
 } from "./types";
 
 export function errorMessage(error: unknown): string {
@@ -169,6 +170,8 @@ export const api = {
       model,
       mode,
     }),
+  usageStats: (providerId: string, model: string) =>
+    invoke<UsageStats>("usage_stats", { providerId, model }),
 
   terminalCreate: (input: {
     projectId?: string | null;
