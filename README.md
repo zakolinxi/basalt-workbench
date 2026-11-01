@@ -70,8 +70,8 @@ npm run tauri build
 本机已验证产物（见 `release/`）：
 
 - `release/Basalt.exe` — 免安装 EXE（20.87 MiB）
-- `release/Basalt_0.1.22_x64-setup.exe` — NSIS 安装包（7.66 MiB）
-- `release/Basalt-0.1.22-x64-portable.zip` — 便携压缩包（9.54 MiB）
+- `release/Basalt_0.1.23_x64-setup.exe` — NSIS 安装包（7.66 MiB）
+- `release/Basalt-0.1.23-x64-portable.zip` — 便携压缩包（9.54 MiB）
 - `release/SHA256SUMS.txt` — 校验和
 
 原始构建位置：`src-tauri/target/release/basalt.exe`、
