@@ -14,6 +14,7 @@ pub mod models;
 pub mod plugins;
 pub mod policy;
 pub mod providers;
+pub mod remote;
 pub mod secrets;
 pub mod skills;
 pub mod state;
@@ -32,9 +33,17 @@ pub fn run() {
             let state = AppState::new(app.handle()).expect("Basalt 初始化失败：无法创建应用状态");
             state.log("INFO", "Basalt Workbench 启动");
             app.manage(state);
+            // The LAN gateway is opt-in; when the user enabled it last time it
+            // comes back up here. A busy port must not stop the app from
+            // starting, so failures are only logged.
+            let handle = app.handle().clone();
+            let state = app.state::<AppState>();
+            remote::install_event_forwarder(&handle);
+            let _ = remote::start_from_settings(&handle, &state);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::browse::browse_directories,
             commands::misc::bootstrap,
             commands::misc::settings_get,
             commands::misc::settings_set,
@@ -117,13 +126,17 @@ pub fn run() {
             commands::extensions::tool_registry,
             commands::extensions::plugin_list,
             commands::extensions::plugin_install,
-            commands::extensions::plugin_uninstall
+            commands::extensions::plugin_uninstall,
+            commands::remote::remote_status,
+            commands::remote::remote_set_enabled,
+            commands::remote::remote_rotate_code
         ])
         .build(tauri::generate_context!())
         .expect("Basalt 无法启动 Tauri 应用");
 
     app.run(|app_handle, event| {
         if let tauri::RunEvent::Exit = event {
+            remote::stop();
             terminal::kill_all_terminals(app_handle);
             if let Some(state) = app_handle.try_state::<AppState>() {
                 let cancels = state

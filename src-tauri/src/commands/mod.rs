@@ -1,3 +1,4 @@
+pub mod browse;
 pub mod changes;
 pub mod chat;
 pub mod extensions;
@@ -6,6 +7,7 @@ pub mod images;
 pub mod misc;
 pub mod projects;
 pub mod providers;
+pub mod remote;
 pub mod sessions;
 pub mod tasks;
 pub mod terminal;

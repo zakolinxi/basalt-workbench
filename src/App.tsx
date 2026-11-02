@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { listen, loadRemoteConfig, isDesktop, onAuthLost, type UnlistenFn } from "./lib/bridge";
 import { Rail } from "./components/Rail";
 import { TitlebarDrag, WindowControls } from "./components/WindowControls";
 import { Toasts } from "./components/ui";
@@ -12,6 +12,7 @@ import type {
   TaskEventEnvelope,
 } from "./lib/types";
 import { Workbench } from "./views/Workbench";
+import { PairScreen } from "./views/PairScreen";
 
 const ProvidersView = lazy(() =>
   import("./views/ProvidersView").then((module) => ({
@@ -47,6 +48,14 @@ export default function App() {
   const layout = useAppStore((state) => state.layout);
   const setLayout = useAppStore((state) => state.setLayout);
   const [retrying, setRetrying] = useState(false);
+  // Phones must pair with a desktop before the app is usable; the desktop build
+  // is always ready.
+  const [paired, setPaired] = useState(() => isDesktop() || !!loadRemoteConfig());
+
+  useEffect(() => {
+    if (isDesktop()) return;
+    return onAuthLost(() => setPaired(false));
+  }, []);
 
   useEffect(() => {
     startDomTranslation();
@@ -124,6 +133,23 @@ export default function App() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [layout.terminalCollapsed, setLayout]);
+
+  // Phones open with every panel collapsed so the chat owns the screen; the
+  // top bar buttons reopen them as overlay drawers.
+  useEffect(() => {
+    if (isDesktop()) return;
+    if (!window.matchMedia("(max-width: 820px)").matches) return;
+    const current = useAppStore.getState().layout;
+    if (current.sidebarCollapsed && current.rightCollapsed && current.terminalCollapsed) {
+      return;
+    }
+    setLayout({ sidebarCollapsed: true, rightCollapsed: true, terminalCollapsed: true });
+  }, [setLayout]);
+
+  if (!paired) {
+    // A fresh page load re-runs `boot()` against the freshly paired desktop.
+    return <PairScreen onPaired={() => window.location.reload()} />;
+  }
 
   if (!booted) {
     return (

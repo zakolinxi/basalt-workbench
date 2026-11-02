@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
+import { isRemote } from "../lib/bridge";
+import { pickPaths } from "../lib/platform";
+import { requestDirectory } from "../components/DirectoryPicker";
 import {
   AlertTriangle,
   ChevronDown,
@@ -43,6 +45,13 @@ import {
 import { TitlebarDrag } from "../components/WindowControls";
 
 type Tab = "skills" | "mcp" | "plugins" | "registry";
+
+/** Native folder dialog on the desktop, desktop-side browser on the phone. */
+async function chooseFolder(title: string): Promise<string | null> {
+  if (isRemote()) return requestDirectory(title);
+  const [path] = await pickPaths({ directory: true, multiple: false, title });
+  return path ?? null;
+}
 
 const TABS: { id: Tab; label: string; icon: typeof Puzzle }[] = [
   { id: "skills", label: "Skills", icon: Puzzle },
@@ -246,12 +255,8 @@ export function ExtensionsView() {
 
   const installSkill = async () => {
     try {
-      const selection = await open({
-        directory: true,
-        multiple: false,
-        title: "选择包含 SKILL.md 的文件夹",
-      });
-      if (!selection || Array.isArray(selection)) return;
+      const selection = await chooseFolder("选择包含 SKILL.md 的文件夹");
+      if (!selection) return;
       setBusy("install-skill");
       const skill = await api.skillInstall(selection);
       notify("success", "Skill 已安装", skill.name);
@@ -266,12 +271,8 @@ export function ExtensionsView() {
 
   const installPlugin = async () => {
     try {
-      const selection = await open({
-        directory: true,
-        multiple: false,
-        title: "选择包含 plugin.json 的插件文件夹",
-      });
-      if (!selection || Array.isArray(selection)) return;
+      const selection = await chooseFolder("选择包含 plugin.json 的插件文件夹");
+      if (!selection) return;
       setBusy("install-plugin");
       const plugin = await api.pluginInstall(selection);
       notify("success", "插件已安装", plugin.name);

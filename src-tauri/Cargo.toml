@@ -1,6 +1,6 @@
 [package]
 name = "basalt"
-version = "0.2.2"
+version = "0.3.0"
 description = "Basalt — local-first AI engineering workbench"
 authors = ["Basalt"]
 license = "MIT"
@@ -43,6 +43,8 @@ mime_guess = "2"
 encoding_rs = "0.8"
 url = "2"
 bytes = "1"
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
+include_dir = "0.7"
 
 [dev-dependencies]
 tempfile = "3"

@@ -22,7 +22,8 @@ import {
   Square,
   X,
 } from "lucide-react";
-import { open } from "@tauri-apps/plugin-dialog";
+import { isRemote } from "../lib/bridge";
+import { pickBrowserFiles, pickPaths, readFileBase64 } from "../lib/platform";
 import clsx from "clsx";
 import { api, errorMessage } from "../lib/api";
 import { useAppStore, currentProject, currentSession } from "../lib/store";
@@ -92,18 +93,6 @@ const FILE_FILTERS = [
     ],
   },
 ];
-
-function readFileBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = String(reader.result ?? "");
-      resolve(result.split(",")[1] ?? "");
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
 
 function compact(value: number): string {
   if (value >= 1_000_000) {
@@ -476,33 +465,12 @@ export function Composer() {
     }
   };
 
-  const pickAttachments = async () => {
-    try {
-      const selection = await open({
-        multiple: true,
-        title: "添加图片或文本附件",
-        filters: FILE_FILTERS,
-      });
-      if (!selection) return;
-      const paths = Array.isArray(selection) ? selection : [selection];
-      await importPaths(paths);
-    } catch (error) {
-      notify("error", "无法打开文件选择器", errorMessage(error));
-    }
-  };
-
-  const handleDrop = async (event: React.DragEvent) => {
-    event.preventDefault();
-    setDragging(false);
-    if (mode === "agent") {
-      notify("warning", "Agent 模式暂不支持附件");
-      return;
-    }
-    const files = Array.from(event.dataTransfer.files).slice(0, 8);
+  const importFiles = async (files: File[]) => {
     if (!files.length) return;
     setImporting(true);
     try {
       for (const file of files) {
+        if (attachments.length >= 8) break;
         try {
           const base64 = await readFileBase64(file);
           const attachment = await api.attachmentImportBytes(
@@ -518,6 +486,39 @@ export function Composer() {
     } finally {
       setImporting(false);
     }
+  };
+
+  const pickAttachments = async () => {
+    try {
+      if (isRemote()) {
+        // The phone has no access to the PC's file system, so pick locally and
+        // upload the bytes; the desktop stores them exactly the same way.
+        const files = await pickBrowserFiles({
+          multiple: true,
+          accept: "image/*,.txt,.md,.json,.log,.pdf,.csv",
+        });
+        await importFiles(files);
+        return;
+      }
+      const paths = await pickPaths({
+        multiple: true,
+        title: "添加图片或文本附件",
+        filters: FILE_FILTERS,
+      });
+      await importPaths(paths);
+    } catch (error) {
+      notify("error", "无法打开文件选择器", errorMessage(error));
+    }
+  };
+
+  const handleDrop = async (event: React.DragEvent) => {
+    event.preventDefault();
+    setDragging(false);
+    if (mode === "agent") {
+      notify("warning", "Agent 模式暂不支持附件");
+      return;
+    }
+    await importFiles(Array.from(event.dataTransfer.files).slice(0, 8));
   };
 
   const removeAttachment = async (attachment: Attachment) => {

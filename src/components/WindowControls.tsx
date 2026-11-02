@@ -1,12 +1,22 @@
 import { useEffect, useState } from "react";
 import { Copy, Minus, Square, X } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { isDesktop } from "../lib/bridge";
 
-const appWindow = getCurrentWindow();
+// `getCurrentWindow()` throws outside the Tauri shell, so resolve it lazily and
+// keep the module importable from a plain browser.
+function appWindow() {
+  if (!isDesktop()) return null;
+  try {
+    return getCurrentWindow();
+  } catch {
+    return null;
+  }
+}
 
 export function toggleMaximize() {
-  void appWindow
-    .toggleMaximize()
+  void appWindow()
+    ?.toggleMaximize()
     .then(() => window.dispatchEvent(new Event("basalt:window-state")))
     .catch(() => {});
 }
@@ -25,10 +35,12 @@ export function WindowControls() {
   const [maximized, setMaximized] = useState(false);
 
   useEffect(() => {
+    const win = appWindow();
+    if (!win) return;
     let disposed = false;
     let unlisten: (() => void) | undefined;
     const sync = () => {
-      void appWindow
+      void win
         .isMaximized()
         .then((value) => {
           if (!disposed) setMaximized(value);
@@ -38,7 +50,7 @@ export function WindowControls() {
     sync();
     const timer = window.setTimeout(sync, 500);
     window.addEventListener("basalt:window-state", sync);
-    void appWindow
+    void win
       .onResized(sync)
       .then((off) => {
         if (disposed) off();
@@ -53,12 +65,14 @@ export function WindowControls() {
     };
   }, []);
 
+  if (!isDesktop()) return null;
+
   return (
     <div className="window-controls">
       <button
         type="button"
         className="window-control"
-        onClick={() => void appWindow.minimize()}
+        onClick={() => void appWindow()?.minimize()}
         title="最小化"
         aria-label="最小化"
       >
@@ -76,7 +90,7 @@ export function WindowControls() {
       <button
         type="button"
         className="window-control close"
-        onClick={() => void appWindow.close()}
+        onClick={() => void appWindow()?.close()}
         title="关闭"
         aria-label="关闭"
       >

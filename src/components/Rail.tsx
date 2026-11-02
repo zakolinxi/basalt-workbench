@@ -1,5 +1,5 @@
 import { LayoutGrid, Server, Image as ImageIcon, Puzzle, Settings, Sun, Moon, Laptop } from "lucide-react";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openExternal } from "../lib/platform";
 import { useEffect, useState } from "react";
 import { useAppStore } from "../lib/store";
 import { resolveTheme } from "../lib/theme";
@@ -84,7 +84,7 @@ export function Rail() {
         className="rail-btn rail-github"
         aria-label="GitHub 仓库"
         onClick={() => {
-          void openUrl(GITHUB_URL).catch((error) =>
+          void openExternal(GITHUB_URL).catch((error) =>
             notify("error", "打开 GitHub 失败", String(error)),
           );
         }}

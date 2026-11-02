@@ -2,7 +2,7 @@ import { isValidElement, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openExternal } from "../lib/platform";
 import { CopyButton } from "./ui";
 import { useAppStore } from "../lib/store";
 
@@ -31,7 +31,7 @@ const components: Components = {
               .notify("warning", "无法打开链接", "仅支持 http/https 链接");
             return;
           }
-          void openUrl(target).catch((error) => {
+          void openExternal(target).catch((error) => {
             useAppStore
               .getState()
               .notify("error", "打开链接失败", String(error));

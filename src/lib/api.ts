@@ -1,9 +1,10 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./bridge";
 import type {
   Attachment,
   Bootstrap,
   Change,
   ContextUsage,
+  DirListing,
   FileContent,
   FileDiff,
   GitStatus,
@@ -19,6 +20,7 @@ import type {
   Provider,
   ProviderInput,
   ProviderTestResult,
+  RemoteStatus,
   RunMetrics,
   Session,
   Settings,
@@ -267,4 +269,12 @@ export const api = {
       userMessage: Message;
       assistantMessage: Message;
     }>("chat_image_generate", { sessionId, prompt }),
+
+  browseDirectories: (path?: string | null) =>
+    invoke<DirListing>("browse_directories", { path: path ?? null }),
+
+  remoteStatus: () => invoke<RemoteStatus>("remote_status"),
+  remoteSetEnabled: (enabled: boolean, port?: number) =>
+    invoke<RemoteStatus>("remote_set_enabled", { enabled, port: port ?? null }),
+  remoteRotateCode: () => invoke<RemoteStatus>("remote_rotate_code"),
 };

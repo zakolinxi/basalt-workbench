@@ -22,6 +22,7 @@ import {
   Switch,
 } from "../components/ui";
 import { TitlebarDrag } from "../components/WindowControls";
+import { RemoteAccessPanel } from "../components/RemoteAccessPanel";
 
 const CHAT_ROUTES: {
   key: keyof Routing;
@@ -633,6 +634,8 @@ export function SettingsView() {
                 </div>
               </div>
             </section>
+
+            <RemoteAccessPanel />
 
             <section className="settings-section">
               <div className="form-section-head">安全与数据</div>

@@ -125,6 +125,10 @@ export function Workbench() {
       <div className="workbench">
         {!layout.sidebarCollapsed ? (
           <>
+            <div
+              className="mobile-scrim"
+              onClick={() => setLayout({ sidebarCollapsed: true })}
+            />
             <Sidebar style={{ width: layout.sidebarWidth }} />
             <div
               className={`splitter-col ${dragging === "sidebar" ? "dragging" : ""}`}
@@ -142,6 +146,10 @@ export function Workbench() {
                 <ChatView />
                 {!layout.rightCollapsed ? (
                   <>
+                    <div
+                      className="mobile-scrim"
+                      onClick={() => setLayout({ rightCollapsed: true })}
+                    />
                     <div
                       className={`splitter-col ${dragging === "right" ? "dragging" : ""}`}
                       onPointerDown={(event) => beginResize("right", event)}

@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { FileText, RotateCcw } from "lucide-react";
 import clsx from "clsx";
-import { save } from "@tauri-apps/plugin-dialog";
+import { chooseSavePath, downloadDataUrl } from "../lib/platform";
+import { isRemote } from "../lib/bridge";
 import { api, errorMessage } from "../lib/api";
 import { useAppStore } from "../lib/store";
 import type { Attachment, Message } from "../lib/types";
@@ -19,10 +20,12 @@ function ImageActions({ images }: { images: Attachment[] }) {
     setBusy(true);
     try {
       const extension = image.name.split(".").pop() || "png";
-      const target = await save({
-        defaultPath: image.name,
-        filters: [{ name: "Image", extensions: [extension] }],
-      });
+      if (isRemote()) {
+        downloadDataUrl(image.name, await api.readMedia(image.path));
+        notify("success", "图片已保存到手机", image.name);
+        return;
+      }
+      const target = await chooseSavePath(image.name, [extension]);
       if (!target) return;
       await api.imageSaveAs(image.path, target);
       notify("success", "图片已保存", target);

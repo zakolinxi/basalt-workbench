@@ -567,3 +567,26 @@ export interface TerminalTab {
   shell: string;
   alive: boolean;
 }
+
+export interface RemoteStatus {
+  enabled: boolean;
+  running: boolean;
+  port: number;
+  address: string;
+  code: string;
+  codeExpiresIn: number;
+  clients: number;
+  error: string | null;
+}
+
+export interface DirItem {
+  name: string;
+  path: string;
+}
+
+export interface DirListing {
+  path: string;
+  parent: string | null;
+  home: string;
+  entries: DirItem[];
+}

@@ -11,7 +11,8 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { isRemote } from "../lib/bridge";
+import { downloadDataUrl, pickBrowserFiles, pickPaths, readFileBase64, chooseSavePath } from "../lib/platform";
 import clsx from "clsx";
 import { api, errorMessage } from "../lib/api";
 import { useAppStore } from "../lib/store";
@@ -179,14 +180,23 @@ export function ImageStudio() {
 
   const pickReference = async (kind: "reference" | "mask") => {
     try {
-      const selection = await open({
-        multiple: false,
-        title: kind === "reference" ? "选择参考图片" : "选择蒙版图片",
-        filters: [{ name: "图片", extensions: ["png", "jpg", "jpeg", "webp"] }],
-      });
-      const path = Array.isArray(selection) ? selection[0] : selection;
-      if (!path) return;
-      const attachment: Attachment = await api.attachmentImport(path);
+      // On the phone the image comes from the device itself; on the desktop we
+      // keep using the native picker so the file never has to move.
+      let attachment: Attachment;
+      if (isRemote()) {
+        const [file] = await pickBrowserFiles({ accept: "image/png,image/jpeg,image/webp" });
+        if (!file) return;
+        const base64 = await readFileBase64(file);
+        attachment = await api.attachmentImportBytes(file.name, file.type || null, base64);
+      } else {
+        const [path] = await pickPaths({
+          multiple: false,
+          title: kind === "reference" ? "选择参考图片" : "选择蒙版图片",
+          filters: [{ name: "图片", extensions: ["png", "jpg", "jpeg", "webp"] }],
+        });
+        if (!path) return;
+        attachment = await api.attachmentImport(path);
+      }
       if (attachment.kind !== "image") {
         notify("warning", "请选择图片文件");
         return;
@@ -297,10 +307,13 @@ export function ImageStudio() {
   const saveFile = async (file: ImageFile) => {
     const extension = file.name.split(".").pop() || "png";
     try {
-      const target = await save({
-        defaultPath: file.name,
-        filters: [{ name: "Image", extensions: [extension] }],
-      });
+      if (isRemote()) {
+        // No dialog on the phone: hand the bytes to the browser downloader.
+        downloadDataUrl(file.name, await api.readMedia(file.path));
+        notify("success", "图片已保存到手机", file.name);
+        return;
+      }
+      const target = await chooseSavePath(file.name, [extension]);
       if (!target) return;
       await api.imageSaveAs(file.path, target);
       notify("success", "图片已保存", target);
