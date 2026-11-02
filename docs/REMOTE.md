@@ -76,10 +76,23 @@ Basalt 的手机端不是把工作台搬进手机，而是**让手机遥控电�
 # 生产构建（桌面 exe 与手机构建共用同一份前端产物）
 npm run build
 
-# 同步到 Android 工程并打包调试 APK
-npm run mobile:apk
-# 产物：android/app/build/outputs/apk/debug/app-debug.apk
+# 同步到 Android 工程并打包
+npm run mobile:apk            # 调试包 → apk/debug/app-debug.apk
+npm run mobile:apk:release    # 正式包 → apk/release/app-release.apk
 ```
+
+正式包用 `android/keystore.properties` 里的证书签名，该文件与证书本身都不入库：
+
+```properties
+storeFile=C:\\Users\\<你>\\.basalt\\basalt-release.jks
+storePassword=…
+keyAlias=basalt
+keyPassword=…
+```
+
+**证书与密码务必单独备份**。Android 用签名判断「是不是同一个应用」：
+换证书后新包无法覆盖安装，用户必须先卸载（本地登录态与 localStorage 会丢）。
+只签一次 debug 包对外分发也不行——debug 证书每台机器不同，同样无法互相覆盖。
 
 要求：JDK 21（`JAVA_HOME` 指向它）、Android SDK Platform 35、Build-Tools 35。
 

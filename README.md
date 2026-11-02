@@ -176,9 +176,13 @@ npm run tauri build
 ### 手机 APK
 
 ```bash
-npm run mobile:apk
-# android/app/build/outputs/apk/debug/app-debug.apk
+npm run mobile:apk           # 调试包，用 Android 默认调试证书
+npm run mobile:apk:release   # 正式包，用 release 证书签名
+# android/app/build/outputs/apk/release/app-release.apk
 ```
+
+正式签名读 `android/keystore.properties`（指向 `~/.basalt/basalt-release.jks`，
+两者都不入库）。**重建或更换签名证书会导致无法覆盖安装**，请备份证书与密码。
 
 前端产物与桌面端共用一份：`src-tauri` 通过 `include_dir!` 把它嵌进 exe，
 网关直接从内存托管，所以电脑端不需要额外部署静态文件。
@@ -190,10 +194,12 @@ npm run mobile:apk
 - `Basalt.exe` — 免安装 EXE
 - `Basalt_0.3.0_x64-setup.exe` — NSIS 安装包
 - `Basalt-0.3.0-x64-portable.zip` — 便携包（含 README、LICENSE、OFL）
-- `Basalt-Remote-0.3.0.apk` — 手机客户端（Android，调试签名）
+- `Basalt-Remote-0.3.0.apk` — 手机客户端（Android，release 证书签名）
 - `SHA256SUMS.txt` — 校验和
 
-安装包与 APK 均未签名，Windows SmartScreen / Android 可能提示风险。
+APK 已用固定的 release 证书签名（`CN=Basalt`，证书 SHA-256
+`79:30:0D:C3:2A:04:9E:65…`），可覆盖安装后续版本；Windows 安装包仍未做代码签名，
+SmartScreen 可能提示。
 便携版仍使用 `%APPDATA%\com.basalt.workbench` 保存数据库、附件与设置。
 
 ## 首次使用

@@ -11,3 +11,8 @@ src-tauri/gen/
 .codex/
 .cursor/
 .windsurf/
+
+# Release signing material — never commit these.
+android/keystore.properties
+*.jks
+*.keystore

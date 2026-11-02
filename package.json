@@ -13,7 +13,8 @@
     "test": "vitest run",
     "mobile:sync": "npm run build && cap sync android",
     "mobile:apk": "npm run mobile:sync && cd android && gradlew.bat assembleDebug",
-    "mobile:open": "cap open android"
+    "mobile:open": "cap open android",
+    "mobile:apk:release": "npm run mobile:sync && cd android && gradlew.bat assembleRelease"
   },
   "dependencies": {
     "@capacitor/android": "^7.6.10",
