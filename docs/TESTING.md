@@ -1,10 +1,22 @@
 # 自动化测试与验证记录
 
-验证日期：2026-10-27，更新：2026-11-01
+验证日期：2026-10-27，更新：2026-11-04
 环境：Windows 10.0.26300 x64 · Node 26.1.0 · Rust 1.99.1 (MSVC) · WebView2 155
 
 > 2026-10-28 起内置 Mock 供应商与 Mock 演示沙盒已移除；本文中涉及 Mock 的
 > 冒烟流程与截图仅作历史记录，不再可执行。
+
+## 0.3.1 发布验证（2026-11-04）
+
+| 检查 | 命令 | 结果 |
+| --- | --- | --- |
+| TypeScript 类型检查 | `npx tsc --noEmit` | 通过，0 errors |
+| 前端单元测试 | `npx vitest run` | **25 passed**（新增余额金额格式化） |
+| Rust 测试 | `cargo test --lib` | **80 passed, 0 failed**（新增 DeepSeek / Moonshot 余额解析） |
+| Windows 发布构建 | `npm run tauri build` | EXE + NSIS 安装包构建成功 |
+| Android release APK | `npm run mobile:apk:release` | 使用固定 release 证书签名 |
+| 余额端到端 | 真实 DeepSeek 账户 | 读取当前 Key，状态栏显示余额并在使用后自动刷新 |
+| 余额明细 | 点击状态栏余额 chip | 总余额、赠送、充值、可用状态与刷新正常 |
 
 ## 1. 静态检查与单元测试
 
@@ -172,20 +184,20 @@ Rust 测试覆盖：
 
 | 产物 | 结果 |
 | --- | --- |
-| `release/Basalt.exe` | 构建成功（23,377,920 字节，约 22.30 MiB） |
-| `release/Basalt_0.2.2_x64-setup.exe` | NSIS 安装包构建成功（8.11 MiB） |
-| `release/Basalt-0.2.2-x64-portable.zip` | 便携压缩包构建成功（9.84 MiB） |
-| 发布 EXE 冒烟 | 文件版本 0.2.2；空会话标题与品牌图标对齐已修正 |
+| `release/Basalt.exe` | 构建成功（42,938,880 字节，约 40.95 MiB），文件版本 0.3.1 |
+| `release/Basalt_0.3.1_x64-setup.exe` | NSIS 安装包构建成功（11,734,850 字节，约 11.19 MiB） |
+| `release/Basalt-0.3.1-x64-portable.zip` | 便携压缩包构建成功（15,189,611 字节，约 14.49 MiB） |
+| `release/Basalt-Remote-0.3.1.apk` | Android release APK（7,440,859 字节，versionCode 31，固定证书签名） |
+| 发布 EXE 冒烟 | 窗口正常打开；侧栏版本显示 0.3.1；余额 chip 正常读取并显示 |
 | 应用图标 | `gpt-image-2.5-sunburst` 生成 1254px 源图，透明圆角，`tauri icon` 生成全套各平台图标 |
 | 首次启动 | 成功；窗口 “Basalt Workbench”；数据目录正常创建 |
 | 遥测 / 网络 | 启动不联网；仅供应商请求、Agent 联网工具与用户配置的 MCP 服务器会访问外部服务 |
-| 静默安装 | `/S /D=<temp>`，退出码 0 |
-| 安装后启动 | 安装目录 `basalt.exe` 启动成功，窗口标题 `Basalt Workbench` |
+| 静默安装 | `/S /D=<temp>`，退出码 0；安装目录内 `basalt.exe` 版本 0.3.1 |
 | 静默卸载 | `uninstall.exe /S` 退出码 0，安装目录已移除 |
 
-构建说明：GitHub 下载 Tauri NSIS 工具超时，使用可用镜像下载官方
-`nsis-3.13.zip` 与 `nsis_tauri_utils-v0.5.3` DLL（SHA1 校验一致）后，
-部署到 `%LOCALAPPDATA%/tauri/NSIS` 完成打包。安装包未签名。
+构建说明：NSIS 工具位于 `%LOCALAPPDATA%/tauri/NSIS`，安装包未做代码签名。
+Android 使用固定 release 证书签名（`CN=Basalt`，SHA-256
+`79:30:0D:C3:2A:04:9E:65…`），可覆盖安装后续版本。
 
 ## 4. 未执行的真实服务验证
 

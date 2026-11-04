@@ -18,6 +18,7 @@ import type {
   ModelEndpointView,
   Project,
   Provider,
+  ProviderBalance,
   ProviderInput,
   ProviderTestResult,
   RemoteStatus,
@@ -59,6 +60,8 @@ export const api = {
     invoke<Provider>("provider_duplicate", { providerId }),
   providerTest: (providerId: string) =>
     invoke<ProviderTestResult>("provider_test", { providerId }),
+  providerBalance: (providerId: string) =>
+    invoke<ProviderBalance | null>("provider_balance", { providerId }),
   providerEndpoints: (providerId: string) =>
     invoke<ModelEndpointView[]>("provider_model_endpoints", { providerId }),
   providerDetectModel: (providerId: string, model: string) =>

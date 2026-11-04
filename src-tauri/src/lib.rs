@@ -51,6 +51,7 @@ pub fn run() {
             commands::misc::open_path,
             commands::misc::app_info,
             commands::misc::session_message_count,
+            commands::balance::provider_balance,
             commands::providers::provider_list,
             commands::providers::provider_get,
             commands::providers::provider_create,

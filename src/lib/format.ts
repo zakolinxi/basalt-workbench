@@ -42,6 +42,25 @@ export function relativeTime(value?: string | null): string {
   });
 }
 
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  CNY: "¥",
+  USD: "$",
+  EUR: "€",
+  GBP: "£",
+  JPY: "¥",
+};
+
+export function formatMoney(amount: number, currency = "CNY"): string {
+  const symbol = CURRENCY_SYMBOLS[currency.toUpperCase()];
+  const value = Number.isFinite(amount)
+    ? amount.toLocaleString("zh-CN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    : "—";
+  return symbol ? `${symbol}${value}` : `${currency} ${value}`;
+}
+
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
   if (bytes < 1024) return `${bytes} B`;

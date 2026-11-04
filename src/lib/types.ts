@@ -78,6 +78,18 @@ export interface ProviderTestResult {
   models?: ProviderModel[] | null;
 }
 
+export interface ProviderBalance {
+  providerId: string;
+  provider: string;
+  source: "deepseek" | "moonshot" | string;
+  available: boolean;
+  currency: string;
+  total: number;
+  granted: number;
+  toppedUp: number;
+  checkedAt: string;
+}
+
 export interface Project {
   id: string;
   name: string;

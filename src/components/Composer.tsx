@@ -15,11 +15,13 @@ import {
   ImagePlus,
   Paperclip,
   Plus,
+  RefreshCw,
   Settings2,
   Shield,
   ShieldAlert,
   ShieldCheck,
   Square,
+  Wallet,
   X,
 } from "lucide-react";
 import { isRemote } from "../lib/bridge";
@@ -27,13 +29,14 @@ import { pickBrowserFiles, pickPaths, readFileBase64 } from "../lib/platform";
 import clsx from "clsx";
 import { api, errorMessage } from "../lib/api";
 import { useAppStore, currentProject, currentSession } from "../lib/store";
-import { estimateTokens, formatBytes } from "../lib/format";
+import { estimateTokens, formatBytes, formatMoney, relativeTime } from "../lib/format";
 import { APPROVAL_OPTIONS, approvalMode, approvalOption } from "../lib/permissions";
 import { pickAndAddProject } from "../lib/project";
 import type {
   Attachment,
   ContextUsage,
   Provider,
+  ProviderBalance,
   ReasoningEffort,
   UsageStats,
 } from "../lib/types";
@@ -179,6 +182,10 @@ export function Composer() {
   const [contextLoading, setContextLoading] = useState(false);
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
   const [cacheOpen, setCacheOpen] = useState(false);
+  const [balance, setBalance] = useState<ProviderBalance | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [balanceError, setBalanceError] = useState<string | null>(null);
+  const [balanceOpen, setBalanceOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const modelPickerRef = useClickOutside<HTMLDivElement>(
     () => setModelPickerOpen(false),
@@ -207,6 +214,10 @@ export function Composer() {
   const cacheRef = useClickOutside<HTMLDivElement>(
     () => setCacheOpen(false),
     cacheOpen,
+  );
+  const balanceRef = useClickOutside<HTMLDivElement>(
+    () => setBalanceOpen(false),
+    balanceOpen,
   );
   const provider = chatProviders.find((item) => item.id === providerId) ?? null;
   const modelInfo = provider?.models.find((item) => item.id === model.trim()) ?? null;
@@ -293,6 +304,7 @@ export function Composer() {
     setContextUsage(null);
     setUsageStats(null);
     setCacheOpen(false);
+    setBalanceOpen(false);
   }, [session?.id]);
 
   useEffect(() => {
@@ -359,6 +371,66 @@ export function Composer() {
   }, [session?.id, providerId, model, messages.length, activeChat]);
 
   useEffect(() => {
+    if (!provider?.id || !provider.hasKey) {
+      setBalance(null);
+      setBalanceError(null);
+      setBalanceLoading(false);
+      setBalanceOpen(false);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setBalanceLoading(true);
+      api
+        .providerBalance(provider.id)
+        .then((next) => {
+          if (cancelled) return;
+          setBalance(next);
+          setBalanceError(null);
+          if (!next) setBalanceOpen(false);
+        })
+        .catch((error) => {
+          if (!cancelled) setBalanceError(errorMessage(error));
+        })
+        .finally(() => {
+          if (!cancelled) setBalanceLoading(false);
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+    // A completed turn changes the account balance; `messages.length` and the
+    // stream flag are the cheapest stable signals for that moment.
+  }, [
+    provider?.id,
+    provider?.hasKey,
+    provider?.baseUrl,
+    messages.length,
+    sessionActiveChat,
+  ]);
+
+  useEffect(() => {
+    setBalanceOpen(false);
+    setBalanceError(null);
+  }, [provider?.id]);
+
+  const refreshBalance = async () => {
+    if (!provider?.id || balanceLoading) return;
+    setBalanceLoading(true);
+    setBalanceError(null);
+    try {
+      const next = await api.providerBalance(provider.id);
+      setBalance(next);
+      if (!next) setBalanceOpen(false);
+    } catch (error) {
+      setBalanceError(errorMessage(error));
+    } finally {
+      setBalanceLoading(false);
+    }
+  };
+
+  useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setModelPickerOpen(false);
@@ -368,6 +440,7 @@ export function Composer() {
       setBranchMenuOpen(false);
       setContextOpen(false);
       setCacheOpen(false);
+      setBalanceOpen(false);
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
@@ -1113,6 +1186,88 @@ export function Composer() {
               </div>
             ) : null}
           </div>
+          {balance && balance.providerId === provider?.id ? (
+            <div className="composer-balance" ref={balanceRef}>
+              <button
+                type="button"
+                className={clsx(
+                  "composer-balance-trigger",
+                  balanceOpen && "open",
+                  !balance.available && "warn",
+                )}
+                onClick={() => {
+                  setCacheOpen(false);
+                  setContextOpen(false);
+                  const opening = !balanceOpen;
+                  setBalanceOpen(opening);
+                  if (opening) void refreshBalance();
+                }}
+                aria-haspopup="dialog"
+                aria-expanded={balanceOpen}
+                title={`${balance.provider} 余额 ${formatMoney(balance.total, balance.currency)}`}
+              >
+                <Wallet size={11} />
+                <span className="composer-balance-label">余额</span>
+                <span className="composer-balance-value">
+                  {formatMoney(balance.total, balance.currency)}
+                </span>
+              </button>
+              {balanceOpen ? (
+                <div
+                  className="composer-balance-popover"
+                  role="dialog"
+                  aria-label="账户余额"
+                >
+                  <div className="composer-balance-head">
+                    <span className="composer-balance-head-title">
+                      <Wallet size={12} /> {balance.provider} 余额
+                    </span>
+                    <button
+                      type="button"
+                      className="composer-balance-refresh"
+                      onClick={() => void refreshBalance()}
+                      disabled={balanceLoading}
+                      title="刷新余额"
+                      aria-label="刷新余额"
+                    >
+                      {balanceLoading ? (
+                        <span className="spinner" />
+                      ) : (
+                        <RefreshCw size={11} />
+                      )}
+                    </button>
+                  </div>
+                  <div
+                    className={clsx(
+                      "composer-balance-total",
+                      !balance.available && "warn",
+                    )}
+                  >
+                    {formatMoney(balance.total, balance.currency)}
+                  </div>
+                  <div className="composer-balance-state">
+                    {balance.available ? "账户可用" : "账户不可用或已欠费"}
+                  </div>
+                  <div className="composer-balance-divider" />
+                  <div className="composer-balance-row">
+                    <span>赠送余额</span>
+                    <span>{formatMoney(balance.granted, balance.currency)}</span>
+                  </div>
+                  <div className="composer-balance-row">
+                    <span>充值余额</span>
+                    <span>{formatMoney(balance.toppedUp, balance.currency)}</span>
+                  </div>
+                  <div className="composer-balance-foot">
+                    <span>更新于 {relativeTime(balance.checkedAt) || "刚刚"}</span>
+                    <span>密钥仅在本机使用</span>
+                  </div>
+                  {balanceError ? (
+                    <div className="composer-balance-error">{balanceError}</div>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <div className="composer-status-right">
             <div className="composer-alerts">
               {chatProviders.length === 0 && !isImageCommand ? (
@@ -1134,6 +1289,7 @@ export function Composer() {
                   className={clsx("composer-cache", cacheOpen && "open")}
                   onClick={() => {
                     setContextOpen(false);
+                    setBalanceOpen(false);
                     setCacheOpen((value) => !value);
                   }}
                   aria-haspopup="dialog"
@@ -1209,6 +1365,7 @@ export function Composer() {
                   className="composer-context-trigger"
                   onClick={() => {
                     setCacheOpen(false);
+                    setBalanceOpen(false);
                     setContextOpen((value) => !value);
                   }}
                   aria-expanded={contextOpen}

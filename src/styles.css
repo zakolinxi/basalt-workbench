@@ -3023,6 +3023,168 @@ a {
   color: var(--ok);
   font-weight: 600;
 }
+.composer-balance {
+  position: relative;
+  flex: none;
+}
+.composer-balance-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  margin: -2px 0;
+  border: 1px solid color-mix(in srgb, var(--info) 26%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--info) 9%, transparent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--fg-2);
+  white-space: nowrap;
+  cursor: pointer;
+  appearance: none;
+}
+.composer-balance-trigger:hover,
+.composer-balance-trigger.open {
+  border-color: color-mix(in srgb, var(--info) 48%, transparent);
+  background: color-mix(in srgb, var(--info) 15%, transparent);
+}
+.composer-balance-trigger:focus-visible {
+  outline: 1px solid var(--accent-line);
+  outline-offset: 1px;
+}
+.composer-balance-trigger svg {
+  flex: none;
+  color: var(--info);
+}
+.composer-balance-trigger.warn {
+  border-color: color-mix(in srgb, var(--warn) 30%, transparent);
+  background: color-mix(in srgb, var(--warn) 8%, transparent);
+}
+.composer-balance-trigger.warn svg {
+  color: var(--warn);
+}
+.composer-balance-label {
+  color: var(--fg-3);
+}
+.composer-balance-value {
+  color: var(--fg-1);
+  font-weight: 600;
+}
+.composer-balance-popover {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 10px);
+  z-index: 84;
+  width: 268px;
+  padding: 12px 14px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-1);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
+}
+.composer-balance-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.composer-balance-head-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-0);
+}
+.composer-balance-head-title svg {
+  flex: none;
+  color: var(--info);
+}
+.composer-balance-refresh {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--fg-3);
+  cursor: pointer;
+}
+.composer-balance-refresh:hover {
+  background: var(--bg-hover);
+  color: var(--fg-0);
+}
+.composer-balance-refresh:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.composer-balance-refresh .spinner {
+  width: 11px;
+  height: 11px;
+  border-width: 1px;
+}
+.composer-balance-total {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--fg-0);
+}
+.composer-balance-total.warn {
+  color: var(--warn);
+}
+.composer-balance-state {
+  margin-top: 3px;
+  font-size: 10px;
+  color: var(--fg-3);
+}
+.composer-balance-divider {
+  height: 1px;
+  margin: 10px 0 4px;
+  background: var(--line);
+}
+.composer-balance-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4.5px 0;
+  font-size: 11px;
+  color: var(--fg-2);
+}
+.composer-balance-row span:last-child {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--fg-1);
+  white-space: nowrap;
+}
+.composer-balance-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  font-size: 9.5px;
+  color: var(--fg-3);
+}
+.composer-balance-error {
+  margin-top: 8px;
+  padding: 6px 7px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--err) 8%, transparent);
+  color: var(--err);
+  font-size: 10px;
+  line-height: 1.45;
+  word-break: break-word;
+}
 .composer-context {
   position: relative;
   flex: none;

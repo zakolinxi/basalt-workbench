@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toolLabel, toolTarget } from "./format";
+import { formatMoney, toolLabel, toolTarget } from "./format";
 
 describe("tool formatting", () => {
   it("maps tool names to readable labels", () => {
@@ -21,5 +21,18 @@ describe("tool formatting", () => {
     );
     expect(toolTarget("run_command", { command: "npm test" })).toBe("npm test");
     expect(toolTarget("git_status", {})).toBe("工作区");
+  });
+});
+
+describe("money formatting", () => {
+  it("uses the currency symbol and two decimals", () => {
+    expect(formatMoney(2.01, "CNY")).toBe("¥2.01");
+    expect(formatMoney(1000, "USD")).toBe("$1,000.00");
+    expect(formatMoney(24.996382, "CNY")).toBe("¥25.00");
+  });
+
+  it("falls back to the currency code for unknown currencies", () => {
+    expect(formatMoney(3.5, "HKD")).toBe("HKD 3.50");
+    expect(formatMoney(Number.NaN, "CNY")).toBe("¥—");
   });
 });

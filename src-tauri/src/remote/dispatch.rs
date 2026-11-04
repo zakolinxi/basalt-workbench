@@ -53,6 +53,10 @@ pub async fn call(app: &AppHandle, cmd: &str, args: Value) -> Result<Value, Stri
             let provider_id: String = p(&args, &["providerId", "provider_id"])?;
             wrap(commands::providers::provider_test(state, provider_id).await)
         }
+        "provider_balance" => {
+            let provider_id: String = p(&args, &["providerId", "provider_id"])?;
+            wrap(commands::balance::provider_balance(state, provider_id).await)
+        }
         "provider_detect_model" => {
             let provider_id: String = p(&args, &["providerId", "provider_id"])?;
             let model: String = p(&args, &["model"])?;

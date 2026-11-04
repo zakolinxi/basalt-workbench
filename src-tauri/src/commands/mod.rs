@@ -1,3 +1,4 @@
+pub mod balance;
 pub mod browse;
 pub mod changes;
 pub mod chat;
