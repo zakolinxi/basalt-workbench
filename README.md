@@ -255,3 +255,4 @@ cache/cost telemetry and local credential storage. See
 - Code: MIT License — see [LICENSE](LICENSE).
 - Inter / JetBrains Mono: SIL OFL 1.1 — see [src/assets/fonts/OFL.txt](src/assets/fonts/OFL.txt).
 - App icon generated with `gpt-image-2.5-sunburst`.
+- and tksn [linuxdo](linux.do)
