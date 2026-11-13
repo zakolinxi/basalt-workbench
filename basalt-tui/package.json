@@ -1,0 +1,32 @@
+{
+  "name": "basalt-tui",
+  "version": "0.1.0",
+  "description": "Basalt — a local-first terminal coding agent for Windows",
+  "keywords": [
+    "ai",
+    "agent",
+    "cli",
+    "tui",
+    "coding-agent",
+    "terminal",
+    "llm"
+  ],
+  "license": "MIT",
+  "bin": {
+    "basalt-tui": "bin/basalt.exe"
+  },
+  "files": [
+    "bin/basalt.exe",
+    "README.md",
+    "config.example.json"
+  ],
+  "os": [
+    "win32"
+  ],
+  "cpu": [
+    "x64"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

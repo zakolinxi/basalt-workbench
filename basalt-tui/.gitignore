@@ -1,0 +1,4 @@
+bin/
+docs/screenshots/*.html
+docs/screenshots/_crop.png
+*.exe
