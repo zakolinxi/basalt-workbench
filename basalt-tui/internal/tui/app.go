@@ -47,20 +47,21 @@ type Model struct {
 	input    textarea.Model
 	spinner  spinner.Model
 
-	items       []Item
-	events      chan agent.Event
-	streamIdx   int
-	thinkingIdx int
-	plan        []tools.PlanStep
-	history     []string
-	historyIdx  int
-	draft       string
-	autoScroll  bool
-	streaming   bool
-	cancel      context.CancelFunc
-	runStarted  time.Time
-	lastEventAt time.Time
-	streamChars int
+	items        []Item
+	events       chan agent.Event
+	showThinking bool
+	streamIdx    int
+	thinkingIdx  int
+	plan         []tools.PlanStep
+	history      []string
+	historyIdx   int
+	draft        string
+	autoScroll   bool
+	streaming    bool
+	cancel       context.CancelFunc
+	runStarted   time.Time
+	lastEventAt  time.Time
+	streamChars  int
 
 	approval *approvalState
 	picker   *pickerState
@@ -232,6 +233,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 
+	case tea.MouseMsg:
+		switch msg.Button {
+		case tea.MouseButtonWheelUp:
+			m.viewport.LineUp(3)
+			m.autoScroll = m.viewport.AtBottom()
+		case tea.MouseButtonWheelDown:
+			m.viewport.LineDown(3)
+			m.autoScroll = m.viewport.AtBottom()
+		}
+		return m, nil
+
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
@@ -337,6 +349,31 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.refreshViewport(false)
 		return m, nil
 
+	case "ctrl+t":
+		m.showThinking = !m.showThinking
+		if m.showThinking {
+			m.notice = "已展开思考"
+		} else {
+			m.notice = "已收起思考"
+		}
+		m.noticeAt = time.Now()
+		m.refreshViewport(false)
+		return m, nil
+
+	case "end":
+		if m.input.Value() == "" {
+			m.viewport.GotoBottom()
+			m.autoScroll = true
+			return m, nil
+		}
+
+	case "home":
+		if m.input.Value() == "" {
+			m.viewport.GotoTop()
+			m.autoScroll = false
+			return m, nil
+		}
+
 	case "ctrl+p":
 		m.slash.open = true
 		m.slash.query = ""
@@ -358,19 +395,28 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.layout()
 		return m, m.submit(text)
 
-	case "pgup", "pgdown", "ctrl+u", "ctrl+d":
+	case "pgup", "pgdown":
 		var cmd tea.Cmd
 		m.viewport, cmd = m.viewport.Update(msg)
 		m.autoScroll = m.viewport.AtBottom()
 		return m, cmd
 
 	case "up", "down":
-		// History recall when the composer is empty; otherwise let the
-		// textarea handle cursor movement.
-		if m.input.Value() == "" && !m.streaming {
-			m.recallHistory(msg.String())
+		// With an empty composer, arrows scroll the transcript. History is
+		// available on alt+up / alt+down so both gestures stay available.
+		if m.input.Value() == "" {
+			if msg.String() == "up" {
+				m.viewport.LineUp(1)
+			} else {
+				m.viewport.LineDown(1)
+			}
+			m.autoScroll = m.viewport.AtBottom()
 			return m, nil
 		}
+
+	case "alt+up", "alt+down":
+		m.recallHistory(strings.TrimPrefix(msg.String(), "alt+"))
+		return m, nil
 	}
 
 	if msg.String() == "ctrl+j" || msg.String() == "alt+enter" {

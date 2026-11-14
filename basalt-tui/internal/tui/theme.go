@@ -47,6 +47,7 @@ var (
 	styleDimText   = lipgloss.NewStyle().Foreground(lipgloss.Color(cFgDim))
 	styleFaintText = lipgloss.NewStyle().Foreground(lipgloss.Color(cFaint))
 	styleThink     = lipgloss.NewStyle().Foreground(lipgloss.Color(cGhost)).Italic(true)
+	styleGhostHint = lipgloss.NewStyle().Foreground(lipgloss.Color(cGhost)).Italic(true)
 
 	styleToolName  = lipgloss.NewStyle().Foreground(lipgloss.Color(cBlue)).Bold(true)
 	styleToolTitle = lipgloss.NewStyle().Foreground(lipgloss.Color(cFgDim))

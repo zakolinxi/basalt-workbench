@@ -217,6 +217,14 @@ func wrapText(s string, width int) []string {
 			continue
 		}
 		r, size := decodeRune(s[i:])
+		if r == '\n' {
+			lines = append(lines, strings.TrimRight(line.String(), " "))
+			line.Reset()
+			lineWidth = 0
+			lastBreak = -1
+			i += size
+			continue
+		}
 		w := runewidth.RuneWidth(r)
 		if lineWidth+w > width {
 			if lastBreak > 0 {

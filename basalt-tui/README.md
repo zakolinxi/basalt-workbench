@@ -26,6 +26,8 @@
 
 - **与桌面工作台共用供应商**：直接读取 Basalt 的 `basalt.db` 和 Windows 凭据，桌面版配置过的 provider、模型和 API Key 在终端里立即可用，不需要再配一遍。
 - **真流式对话**：OpenAI Chat Completions、OpenAI Responses、Anthropic Messages、Gemini、Ollama 原生协议，逐字输出，工具调用增量聚合。
+- **思考可折叠**：推理内容默认收起成一行摘要，`Ctrl+T` 展开全文，再按一次收起。
+- **对话可回看**：鼠标滚轮、`↑/↓`、`PgUp/PgDn` 浏览历史；离开底部后流式输出不会把视图拽回去，`End` 一键回到底部。
 - **真实文件操作**：`read` / `write` / `edit` / `list` / `glob` / `grep` / `bash` / `webfetch` / `update_plan`，全部限制在工作区内。
 - **改动可见、可撤销**：写入前生成行级 diff；每次修改保存快照，`/undo` 一键还原。
 - **审批式执行**：写文件、执行命令、抓取网页前弹出确认卡片，支持 `y` 允许一次、`a` 本会话总是允许、`n` 拒绝。
@@ -135,7 +137,9 @@ JSON 里的字段会覆盖同名供应商，未写的字段（ID、BaseURL、Key
 | `/export` | 导出会话 Markdown |
 | `/quit` | 退出 |
 
-快捷键：`Enter` 发送 · `Ctrl+J` 换行 · `Esc` 中断生成 · `Ctrl+L` 清屏 · `Ctrl+P` 命令面板 · `↑/↓` 历史输入 · `PgUp/PgDn` 滚动。
+快捷键：`Enter` 发送 · `Ctrl+J` 换行 · `Esc` 中断生成 · `Ctrl+T` 展开/收起思考 · `Ctrl+L` 清屏 · `Ctrl+P` 命令面板。
+
+滚动：鼠标滚轮 · `↑/↓` 一行 · `PgUp/PgDn` 翻页 · `End` 回到底部 · `Home` 到顶部 · `Alt+↑/↓` 输入历史。
 
 ## 工作方式
 

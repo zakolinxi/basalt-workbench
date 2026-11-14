@@ -109,7 +109,7 @@ func (m *Model) renderBody() string {
 		if i > 0 && !(prev == ItemTool && it.Kind == ItemTool) {
 			parts = append(parts, "")
 		}
-		parts = append(parts, renderItem(it, m.width))
+		parts = append(parts, renderItem(it, m.width, m.showThinking))
 		prev = it.Kind
 	}
 	return strings.Join(parts, "\n")
@@ -223,7 +223,13 @@ func (m *Model) renderComposer() string {
 
 func (m *Model) renderFooter() string {
 	var left string
-	if m.streaming {
+	if !m.autoScroll {
+		left = styleWarn.Render("↑") + " " + styleDimText.Render("浏览历史")
+		left += styleFaintText.Render("  End 回到底部")
+		if m.streaming {
+			left += styleFaintText.Render("  · 新内容在下方")
+		}
+	} else if m.streaming {
 		elapsed := time.Since(m.runStarted).Seconds()
 		left = styleAccent.Render(m.spinner.View()) + " " +
 			styleDimText.Render("正在生成") + styleFaintText.Render(fmt.Sprintf("  %.1fs", elapsed))
@@ -343,7 +349,10 @@ func (m *Model) renderHelp() string {
 	}
 	b.WriteString("\n")
 	b.WriteString(styleFaintText.Render("快捷键  "))
-	b.WriteString(styleDimText.Render("Ctrl+L 清屏 · Ctrl+P 命令面板 · ↑/↓ 历史消息 · PgUp/PgDn 滚动"))
+	b.WriteString(styleDimText.Render("Ctrl+T 展开/收起思考 · Ctrl+L 清屏 · Ctrl+P 命令面板"))
+	b.WriteString("\n")
+	b.WriteString(styleFaintText.Render("滚动    "))
+	b.WriteString(styleDimText.Render("鼠标滚轮 · ↑/↓ · PgUp/PgDn · End 回到底部 · Alt+↑/↓ 输入历史"))
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(cBorder2)).

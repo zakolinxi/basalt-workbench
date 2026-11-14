@@ -34,7 +34,7 @@ type Item struct {
 const gutter = 2
 
 // renderItem draws one entry at the given total width.
-func renderItem(it Item, width int) string {
+func renderItem(it Item, width int, showThinking bool) string {
 	if width < 20 {
 		width = 20
 	}
@@ -44,7 +44,7 @@ func renderItem(it Item, width int) string {
 	case ItemAssistant:
 		return renderAssistant(it, width)
 	case ItemThinking:
-		return renderThinking(it, width)
+		return renderThinking(it, width, showThinking)
 	case ItemTool:
 		return renderTool(it, width)
 	case ItemError:
@@ -107,28 +107,55 @@ func renderAssistant(it Item, width int) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
-func renderThinking(it Item, width int) string {
+func renderThinking(it Item, width int, expanded bool) string {
 	inner := width - gutter - 4
-	body := wrapText(it.Text, inner)
-	maxLines := 4
-	var lines []string
-	for i, line := range body {
-		if i >= maxLines {
-			lines = append(lines, styleFaintText.Render(fmt.Sprintf("… 还有 %d 行思考", len(body)-i)))
-			break
-		}
-		lines = append(lines, line)
-	}
+	lines := wrapText(it.Text, inner)
 	var b strings.Builder
 	b.WriteString(spaces(gutter))
+
+	if !expanded {
+		// Collapsed: one summary line with a stable hint.
+		if it.Streaming {
+			b.WriteString(styleFaintText.Render("✻ 思考中…"))
+			b.WriteString(styleFaintText.Render(fmt.Sprintf("  %d 字", displayWidth(stripANSI(it.Text)))))
+			b.WriteString(styleGhostHint.Render("  ctrl+t 展开"))
+			return b.String()
+		}
+		summary := ""
+		for _, line := range lines {
+			if strings.TrimSpace(line) != "" {
+				summary = truncateWidth(strings.TrimSpace(line), max(10, inner-30))
+				break
+			}
+		}
+		b.WriteString(styleFaintText.Render("✻ 思考"))
+		if summary != "" {
+			b.WriteString(styleThink.Render("  " + summary))
+		}
+		b.WriteString(styleFaintText.Render(fmt.Sprintf("  · %d 行", len(lines))))
+		b.WriteString(styleGhostHint.Render("  ctrl+t 展开"))
+		return b.String()
+	}
+
 	b.WriteString(styleFaintText.Render("✻ 思考"))
 	if it.Streaming {
 		b.WriteString(styleAccent.Render(" …"))
 	}
+	b.WriteString(styleFaintText.Render(fmt.Sprintf("  · %d 行", len(lines))))
+	b.WriteString(styleGhostHint.Render("  ctrl+t 收起"))
+	maxLines := 12
+	shown := 0
 	for _, line := range lines {
+		if shown >= maxLines {
+			b.WriteString("\n")
+			b.WriteString(spaces(gutter + 2))
+			b.WriteString(styleFaintText.Render(fmt.Sprintf("… 还有 %d 行", len(lines)-shown)))
+			break
+		}
 		b.WriteString("\n")
 		b.WriteString(spaces(gutter + 2))
 		b.WriteString(styleThink.Render(line))
+		shown++
 	}
 	return b.String()
 }

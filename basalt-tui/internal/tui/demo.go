@@ -113,6 +113,7 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			m.sess.Usage = session.Usage{Input: 8420, Output: 864, Requests: 2}
 			m.items = []Item{
 				{Kind: ItemUser, Text: demoUserPrompt, At: demoTime(14, 31)},
+				{Kind: ItemThinking, At: demoTime(14, 31), Text: "先看登录实现和现有的测试结构，再决定限流放在路由层还是服务层。\n现有 login 只校验密码，没有失败计数，适合在服务层加计数与锁定窗口。"},
 				{Kind: ItemAssistant, Model: "deepseek-chat", At: demoTime(14, 31), Text: "先看登录实现和现有的测试结构。\n\n登录逻辑现在只校验密码，没有失败计数。计划如下：\n\n1. 在 `auth.ts` 中加入失败计数器与锁定窗口\n2. 抽出 `recordFailure` 便于测试\n3. 在 `tests/auth.test.ts` 覆盖第 5 次失败与 15 分钟后解锁\n\n先读取文件确认当前实现。"},
 				{Kind: ItemTool, At: demoTime(14, 31), Tool: &agent.ToolEvent{
 					ID: "c1", Name: "read", Title: "read src/server/auth.ts  L1-10", ReadOnly: true,
