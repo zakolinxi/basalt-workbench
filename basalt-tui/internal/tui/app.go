@@ -21,7 +21,7 @@ import (
 )
 
 // Version is stamped at build time via -ldflags when packaging.
-var Version = "0.1.0"
+var Version = "0.2.0"
 
 // Model is the bubbletea application state.
 type Model struct {

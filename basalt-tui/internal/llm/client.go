@@ -18,15 +18,36 @@ import (
 // New builds the right client for a provider preset.
 func New(p config.ProviderConfig) (Client, error) {
 	switch p.Kind {
-	case "openai", "":
+	case "openai_chat", "openai", "":
 		return NewOpenAI(p), nil
+	case "openai_responses":
+		return NewResponses(p), nil
 	case "anthropic":
 		return NewAnthropic(p), nil
+	case "gemini":
+		return NewGemini(p), nil
 	case "ollama":
 		return NewOllama(p), nil
 	default:
 		return nil, fmt.Errorf("unsupported provider kind %q", p.Kind)
 	}
+}
+
+// withHeaders merges provider-configured headers over protocol headers.
+func withHeaders(base, extra map[string]string) map[string]string {
+	if len(extra) == 0 {
+		return base
+	}
+	out := make(map[string]string, len(base)+len(extra))
+	for k, v := range base {
+		out[k] = v
+	}
+	for k, v := range extra {
+		if v != "" {
+			out[k] = v
+		}
+	}
+	return out
 }
 
 var httpClient = &http.Client{

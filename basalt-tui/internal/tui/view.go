@@ -15,7 +15,7 @@ func (m *Model) View() string {
 	if !m.ready {
 		return lipgloss.NewStyle().Foreground(lipgloss.Color(cClay)).Render("  ◆ 正在启动 basalt…")
 	}
-	header := headerLine(m.width, m.preset.Model, m.providerKey, m.relativeCwd(), m.usageLabel())
+	header := headerLine(m.width, m.preset.Model, m.displayProvider(), m.relativeCwd(), m.usageLabel())
 	rule := styleRule.Render(strings.Repeat("─", m.width))
 
 	body := m.viewport.View()
@@ -36,6 +36,32 @@ func (m *Model) View() string {
 		out = placeOverlay(out, menu, m.width, max(1, y))
 	}
 	return truncateLines(out, m.height)
+}
+
+// displayProvider is the short provider label used by headers and footers.
+func (m *Model) displayProvider() string {
+	if m.preset.Name != "" {
+		return m.preset.Name
+	}
+	return m.providerKey
+}
+
+func (m *Model) welcomeProviderLine() string {
+	return m.displayProvider() + "/" + m.preset.Model
+}
+
+func (m *Model) providerSource() string {
+	if m.demo {
+		return "内置预设（演示）"
+	}
+	switch {
+	case strings.Contains(m.cfg.Source, "basalt"):
+		return fmt.Sprintf("Basalt 工作台 · %d 个供应商", len(m.cfg.Providers))
+	case strings.Contains(m.cfg.Source, "config"):
+		return fmt.Sprintf("本地配置 · %d 个供应商", len(m.cfg.Providers))
+	default:
+		return "内置预设"
+	}
 }
 
 func (m *Model) usageLabel() string {
@@ -130,7 +156,8 @@ func (m *Model) renderWelcome() string {
 	}
 	b.WriteString("\n")
 	b.WriteString(spaces(pad) + styleFaintText.Render("工作区  ") + styleDimText.Render(m.relativeCwd()) + "\n")
-	b.WriteString(spaces(pad) + styleFaintText.Render("模型    ") + styleDimText.Render(m.providerKey+"/"+m.preset.Model) + "\n")
+	b.WriteString(spaces(pad) + styleFaintText.Render("模型    ") + styleDimText.Render(m.welcomeProviderLine()) + "\n")
+	b.WriteString(spaces(pad) + styleFaintText.Render("供应商  ") + styleDimText.Render(m.providerSource()) + "\n")
 	b.WriteString(spaces(pad) + styleFaintText.Render("配置    ") + styleDimText.Render(shortPath(m.cfgPath, 64)) + "\n")
 	b.WriteString("\n")
 	b.WriteString(spaces(pad) + styleFaintText.Render("提示：复杂的任务会先给出计划；所有文件改动都会先展示 diff 并等待你批准。") + "\n")

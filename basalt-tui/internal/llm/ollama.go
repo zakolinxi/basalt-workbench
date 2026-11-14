@@ -85,7 +85,7 @@ func (c *Ollama) Stream(ctx context.Context, req Request, emit func(Event) error
 	}
 
 	return withRetry(ctx, emit, func() error {
-		resp, err := post(ctx, c.preset.BaseURL+"/api/chat", nil, payload)
+		resp, err := post(ctx, c.preset.BaseURL+"/api/chat", withHeaders(nil, c.preset.Headers), payload)
 		if err != nil {
 			return err
 		}

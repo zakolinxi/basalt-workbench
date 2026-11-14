@@ -1,7 +1,7 @@
 {
   "name": "basalt-tui",
-  "version": "0.1.0",
-  "description": "Basalt — a local-first terminal coding agent for Windows",
+  "version": "0.2.0",
+  "description": "Basalt - a local-first terminal coding agent for Windows",
   "keywords": [
     "ai",
     "agent",

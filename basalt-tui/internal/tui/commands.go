@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/juang/basalt-tui/internal/agent"
+	"github.com/juang/basalt-tui/internal/config"
 	"github.com/juang/basalt-tui/internal/llm"
 	"github.com/juang/basalt-tui/internal/session"
 )
@@ -117,24 +118,46 @@ func (m *Model) runSlash(text string) tea.Cmd {
 	case "/model", "/provider":
 		if len(args) == 0 {
 			var b strings.Builder
-			b.WriteString("可用 provider（/model <名称> 切换）：\n")
-			names := m.cfg.ProviderNames()
-			for _, name := range names {
-				p, err := m.cfg.Resolve(name)
-				if err != nil {
-					continue
-				}
+			if strings.Contains(m.cfg.Source, "basalt") {
+				b.WriteString("供应商与 Basalt 工作台共享（/model <名称> [模型] 切换）：\n")
+			} else {
+				b.WriteString("可用供应商（/model <名称> [模型] 切换）：\n")
+			}
+			for _, p := range m.cfg.List() {
 				mark := "  "
-				if name == m.providerKey {
+				if p.ID == m.providerKey {
 					mark = "● "
 				}
 				key := "无 key"
 				if p.APIKey != "" {
 					key = "key ✓"
 				}
-				fmt.Fprintf(&b, "%s%-10s %-28s %-8s %s\n", mark, name, p.Model, p.Kind, key)
+				source := p.Source
+				if source == "" {
+					source = "builtin"
+				}
+				models := p.Models
+				if len(models) == 0 {
+					models = []string{p.Model}
+				}
+				shown := models
+				if len(shown) > 3 {
+					shown = shown[:3]
+				}
+				modelText := strings.Join(shown, ", ")
+				if len(models) > 3 {
+					modelText += fmt.Sprintf(" +%d", len(models)-3)
+				}
+				fmt.Fprintf(&b, "%s%s  %s  %s\n    %s\n",
+					mark, styleAccent.Render(padRight(truncateWidth(p.Name, 18), 18)),
+					styleFaintText.Render(p.Kind),
+					styleFaintText.Render(key+"  "+source),
+					styleDimText.Render(modelText))
 			}
 			return notice("%s", strings.TrimRight(b.String(), "\n"))
+		}
+		if len(args) >= 2 {
+			return m.switchProvider(args[0], args[1])
 		}
 		return m.switchProvider(args[0])
 	case "/new":
@@ -214,12 +237,21 @@ func (m *Model) runSlash(text string) tea.Cmd {
 	return notice("未知命令 %s，输入 /help 查看全部命令", cmd)
 }
 
-func (m *Model) switchProvider(name string) tea.Cmd {
-	preset, err := m.cfg.Resolve(name)
+func (m *Model) switchProvider(name string, model ...string) tea.Cmd {
+	key, _, ok := m.cfg.Find(name)
+	if !ok {
+		m.items = append(m.items, Item{Kind: ItemError, Text: "找不到供应商 " + name + "，用 /model 查看列表"})
+		m.refreshViewport(true)
+		return nil
+	}
+	preset, err := m.cfg.Resolve(key)
 	if err != nil {
 		m.items = append(m.items, Item{Kind: ItemError, Text: err.Error()})
 		m.refreshViewport(true)
 		return nil
+	}
+	if len(model) > 0 && strings.TrimSpace(model[0]) != "" {
+		preset.Model = strings.TrimSpace(model[0])
 	}
 	client, err := llm.New(preset)
 	if err != nil {
@@ -228,20 +260,26 @@ func (m *Model) switchProvider(name string) tea.Cmd {
 		return nil
 	}
 	if m.sess.Usage.Requests > 0 {
-		if err := m.store.Save(m.sess); err != nil {
-			_ = err
-		}
+		_ = m.store.Save(m.sess)
 	}
-	m.providerKey = name
+	m.providerKey = key
 	m.preset = preset
 	m.client = client
-	m.sess.Provider = name
+	m.sess.Provider = key
 	m.sess.Model = preset.Model
 	m.ag.Client = client
 	m.ag.MaxTokens = preset.MaxTokens
 	m.ag.Temp = preset.Temperature
 	m.ag.Reasoning = preset.Reasoning
-	m.items = append(m.items, Item{Kind: ItemNotice, Text: fmt.Sprintf("已切换到 %s · %s（%s）", name, preset.Model, preset.Kind)})
+	// Remember the choice for the next launch without copying the shared
+	// provider registry into the TUI config file.
+	_ = config.SaveDefault(key)
+	source := preset.Source
+	if source == "" {
+		source = "builtin"
+	}
+	m.items = append(m.items, Item{Kind: ItemNotice,
+		Text: fmt.Sprintf("已切换到 %s · %s（%s，%s）", preset.Name, preset.Model, preset.Kind, source)})
 	m.refreshViewport(true)
 	return nil
 }
@@ -268,19 +306,16 @@ func (m *Model) resume(id string) tea.Cmd {
 	m.ag.Session = sess
 	m.env.SessionID = sess.ID
 	m.usage = sess.Usage
-	if p, ok := m.cfg.Providers[sess.Provider]; ok {
-		preset, err := m.cfg.Resolve(sess.Provider)
-		if err == nil {
-			if client, err := llm.New(preset); err == nil {
-				m.providerKey = sess.Provider
-				m.preset = preset
-				m.client = client
-				m.ag.Client = client
-				m.ag.MaxTokens = preset.MaxTokens
-				m.ag.Temp = preset.Temperature
-			}
+	if preset, err := m.cfg.Resolve(sess.Provider); err == nil {
+		if client, err := llm.New(preset); err == nil {
+			key, _, _ := m.cfg.Find(sess.Provider)
+			m.providerKey = key
+			m.preset = preset
+			m.client = client
+			m.ag.Client = client
+			m.ag.MaxTokens = preset.MaxTokens
+			m.ag.Temp = preset.Temperature
 		}
-		_ = p
 	}
 	m.items = itemsFromSession(sess)
 	m.refreshViewport(true)

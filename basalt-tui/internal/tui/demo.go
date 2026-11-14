@@ -100,8 +100,7 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			if err != nil {
 				return nil, err
 			}
-			m.providerKey = "deepseek"
-			m.preset.Model = "deepseek-chat"
+			useDemoProvider(m)
 			m.prepare(width, height)
 			return m, nil
 		}},
@@ -110,8 +109,7 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			if err != nil {
 				return nil, err
 			}
-			m.providerKey = "deepseek"
-			m.preset.Model = "deepseek-chat"
+			useDemoProvider(m)
 			m.sess.Usage = session.Usage{Input: 8420, Output: 864, Requests: 2}
 			m.items = []Item{
 				{Kind: ItemUser, Text: demoUserPrompt, At: demoTime(14, 31)},
@@ -130,8 +128,7 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			if err != nil {
 				return nil, err
 			}
-			m.providerKey = "deepseek"
-			m.preset.Model = "deepseek-chat"
+			useDemoProvider(m)
 			m.sess.Usage = session.Usage{Input: 8420, Output: 1204, Requests: 3}
 			m.items = []Item{
 				{Kind: ItemUser, Text: demoUserPrompt, At: demoTime(14, 31)},
@@ -158,8 +155,7 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			if err != nil {
 				return nil, err
 			}
-			m.providerKey = "deepseek"
-			m.preset.Model = "deepseek-chat"
+			useDemoProvider(m)
 			m.sess.Usage = session.Usage{Input: 12840, Output: 1836, Requests: 4, ToolCalls: 4}
 			m.items = demoDoneItems()
 			m.prepare(width, height)
@@ -170,8 +166,7 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			if err != nil {
 				return nil, err
 			}
-			m.providerKey = "deepseek"
-			m.preset.Model = "deepseek-chat"
+			useDemoProvider(m)
 			m.sess.Usage = session.Usage{Input: 8420, Output: 864, Requests: 2}
 			m.items = []Item{
 				{Kind: ItemUser, Text: "把 auth 的失败计数改成可配置的", At: demoTime(14, 41)},
@@ -214,6 +209,20 @@ func (s Scene) RenderFrame() string {
 	return s.Model.View()
 }
 
+// useDemoProvider pins the demo scenes to a stable provider so screenshots do
+// not depend on what is configured in the workbench database.
+func useDemoProvider(m *Model) {
+	const id = "demo-deepseek"
+	m.providerKey = id
+	m.preset = config.ProviderConfig{
+		ID: id, Name: "deepseek", Kind: "openai_chat", Model: "deepseek-chat",
+		BaseURL: "https://api.deepseek.com/v1", MaxTokens: 8192, Source: "builtin",
+	}
+	m.sess.Provider = id
+	m.sess.Model = "deepseek-chat"
+	m.cfg.Source = "builtin"
+}
+
 func demoDoneItems() []Item {
 	return []Item{
 		{Kind: ItemUser, Text: demoUserPrompt, At: demoTime(14, 31)},
@@ -237,8 +246,7 @@ func demoDoneItems() []Item {
 // SeedDemo loads the completed demo conversation so `basalt --demo` can be
 // explored without an API key.
 func (m *Model) SeedDemo() {
-	m.providerKey = "deepseek"
-	m.preset.Model = "deepseek-chat"
+	useDemoProvider(m)
 	m.sess.Usage = session.Usage{Input: 12840, Output: 1836, Requests: 4, ToolCalls: 4}
 	m.usage = m.sess.Usage
 	m.items = demoDoneItems()

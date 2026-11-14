@@ -20,11 +20,12 @@
 
 ## 特性
 
-- **真流式对话**：OpenAI Chat Completions、Anthropic Messages、Ollama 原生协议，逐字输出，工具调用增量聚合。
+- **与桌面工作台共用供应商**：直接读取 Basalt 的 `basalt.db` 和 Windows 凭据，桌面版配置过的 provider、模型和 API Key 在终端里立即可用，不需要再配一遍。
+- **真流式对话**：OpenAI Chat Completions、OpenAI Responses、Anthropic Messages、Gemini、Ollama 原生协议，逐字输出，工具调用增量聚合。
 - **真实文件操作**：`read` / `write` / `edit` / `list` / `glob` / `grep` / `bash` / `webfetch` / `update_plan`，全部限制在工作区内。
 - **改动可见、可撤销**：写入前生成行级 diff；每次修改保存快照，`/undo` 一键还原。
 - **审批式执行**：写文件、执行命令、抓取网页前弹出确认卡片，支持 `y` 允许一次、`a` 本会话总是允许、`n` 拒绝。
-- **多 provider 热切换**：`/model <name>` 立即切换，配置来自内置预设、项目级 `.basalt/config.json` 或用户级配置。
+- **多 provider 热切换**：`/model` 列出工作台里的全部供应商与模型，`/model DeepSeek` 或 `/model DeepSeek deepseek-chat` 立即切换。
 - **会话持久化**：自动保存到用户配置目录，`/sessions` / `/resume` 恢复；`/export` 导出 Markdown。
 - **终端质感**：真彩渐变、Markdown 渲染、语法高亮、行内代码、diff 着色、自适应输入框与状态栏。
 - **上下文管理**：超长会话自动压缩，`/compact` 手动触发。
@@ -60,43 +61,64 @@ $env:DEEPSEEK_API_KEY = "sk-..."
 
 ## 配置
 
-配置文件按以下顺序查找，命中第一个即停止：
+### 共用 Basalt 工作台（默认）
+
+TUI 启动时会读取桌面版的数据库和凭据：
+
+- 供应商与模型：`%APPDATA%\com.basalt.workbench\basalt.db` 的 `providers` 表
+- API Key：Windows 凭据管理器，条目为 `<provider-id>.com.basalt.workbench`
+- 默认供应商：`--provider` → 工作台的 `routing.chat` → TUI 上次选择 → 第一个可用项
+
+`/model` 里带 `basalt` 标记的条目就是共享供应商。切换后 TUI 只记住自己的默认选择，不会改写桌面版数据库。
+
+其他平台的数据目录：
+
+- macOS：`~/Library/Application Support/com.basalt.workbench/basalt.db`
+- Linux：`~/.local/share/com.basalt.workbench/basalt.db`
+
+### 覆盖与独立使用
+
+需要临时改模型或指向别的数据库时，按以下顺序查找 JSON 文件，命中第一个即停止：
 
 1. `$BASALT_TUI_CONFIG`
 2. `<工作区>/.basalt/config.json`
-3. `<UserConfigDir>/basalt-tui/config.json`（Windows：`%APPDATA%\basalt-tui\config.json`）
-4. 内置默认值
+3. `<UserConfigDir>/basalt-tui/config.json`
 
-最小示例（也见 [config.example.json](config.example.json)）：
+JSON 里的字段会覆盖同名供应商，未写的字段（ID、BaseURL、Key）继续沿用工作台里的值。
 
 ```json
 {
-  "default": "deepseek",
+  "default": "DeepSeek",
   "providers": {
-    "deepseek": {
-      "kind": "openai",
-      "baseUrl": "https://api.deepseek.com/v1",
-      "model": "deepseek-chat",
-      "apiKey": "${DEEPSEEK_API_KEY}",
-      "maxTokens": 8192
-    },
-    "local": {
-      "kind": "ollama",
-      "baseUrl": "http://localhost:11434",
-      "model": "qwen2.5-coder:7b"
+    "DeepSeek": {
+      "model": "deepseek-reasoner",
+      "maxTokens": 4096
     }
   }
 }
 ```
 
-`kind` 支持 `openai`（任意 OpenAI 兼容端点）、`anthropic`、`ollama`。API Key 为空时会自动读取对应环境变量。
+没有工作台数据库时，TUI 回退到内置预设，行为与之前版本一致。
+
+### 环境变量
+
+| 变量 | 作用 |
+| --- | --- |
+| `BASALT_DB` | 指定 `basalt.db` 路径 |
+| `BASALT_HOME` | 指定工作台数据目录 |
+| `BASALT_TUI_CONFIG` | 指定 TUI 覆盖配置 |
+| `DEEPSEEK_API_KEY` 等 | 内置预设的密钥回退 |
+
+### 支持的协议
+
+`openai_chat`（任意 OpenAI 兼容端点）、`openai_responses`、`anthropic`、`gemini`、`ollama`。`headers` 字段可以为供应商追加自定义请求头。
 
 ## 命令
 
 | 命令 | 作用 |
 | --- | --- |
 | `/help` | 帮助与快捷键 |
-| `/model [name]` | 列出或切换 provider |
+| `/model [name] [model]` | 列出或切换供应商 / 模型 |
 | `/new` | 新会话 |
 | `/sessions` | 列出历史会话 |
 | `/resume <id>` | 恢复会话 |
@@ -113,7 +135,7 @@ $env:DEEPSEEK_API_KEY = "sk-..."
 
 ## 工作方式
 
-1. 启动时读取工作区、Git 状态、浅层文件树，以及 `AGENTS.md` / `BASALT.md` / `CLAUDE.md` 作为系统提示。
+1. 启动时读取工作台共享的供应商与凭据，再读取工作区、Git 状态、浅层文件树，以及 `AGENTS.md` / `BASALT.md` / `CLAUDE.md` 作为系统提示。
 2. 模型流式返回文本与工具调用；工具按顺序执行，结果回填后继续下一轮，最多 24 轮。
 3. 只读工具自动执行；写操作与命令先算 diff、再请求批准。拒绝会作为工具结果返回给模型。
 4. 每轮结束保存会话与用量；上下文过长时压缩较早的消息。
@@ -125,9 +147,11 @@ basalt-tui/
   main.go                  CLI 入口、快照模式
   internal/
     agent/                 对话循环、审批、上下文压缩、系统提示
-    config/                配置加载与 provider 解析
+    basaltdb/              读取桌面工作台的 SQLite 供应商表
+    config/                配置合并（工作台 DB + JSON 覆盖）
     diff/                  行级 LCS diff
-    llm/                   OpenAI / Anthropic / Ollama 流式客户端
+    llm/                   OpenAI / Responses / Anthropic / Gemini / Ollama 客户端
+    secrets/               Windows 凭据管理器（API Key）
     session/               会话持久化
     snapshot/              ANSI → HTML → PNG 截图
     tools/                 文件、搜索、shell、计划、网页工具
@@ -146,6 +170,7 @@ go run . --snapshot docs/screenshots -C ..      # 重新生成效果图（需要
 ## 安全边界
 
 - 所有路径解析后必须位于工作区内，`../` 越界会被拒绝。
+- API Key 只从 Windows 凭据管理器读取，不写入 TUI 配置或会话文件。
 - `bash` 子进程会移除常见 API Key 环境变量，避免误泄露。
 - 网页抓取仅支持 `http(s)` GET，响应限制 2MB。
 - 每次写操作前都能看到完整 diff，拒绝即不落盘。

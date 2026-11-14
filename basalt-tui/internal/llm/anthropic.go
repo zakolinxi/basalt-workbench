@@ -107,6 +107,7 @@ func (c *Anthropic) Stream(ctx context.Context, req Request, emit func(Event) er
 		"x-api-key":         c.preset.APIKey,
 		"anthropic-version": "2023-06-01",
 	}
+	headers = withHeaders(headers, c.preset.Headers)
 
 	return withRetry(ctx, emit, func() error {
 		resp, err := post(ctx, c.preset.BaseURL+"/v1/messages", headers, payload)
