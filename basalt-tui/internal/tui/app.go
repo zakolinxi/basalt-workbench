@@ -63,6 +63,7 @@ type Model struct {
 	streamChars int
 
 	approval *approvalState
+	picker   *pickerState
 	slash    *slashState
 	notice   string
 	noticeAt time.Time
@@ -299,6 +300,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if handled, cmd := m.handleSlashKey(msg); handled {
 			return m, cmd
 		}
+	}
+
+	if m.picker != nil {
+		return m.handlePickerKey(msg)
 	}
 
 	switch msg.String() {

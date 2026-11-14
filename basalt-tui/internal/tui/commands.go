@@ -117,44 +117,8 @@ func (m *Model) runSlash(text string) tea.Cmd {
 		return nil
 	case "/model", "/provider":
 		if len(args) == 0 {
-			var b strings.Builder
-			if strings.Contains(m.cfg.Source, "basalt") {
-				b.WriteString("供应商与 Basalt 工作台共享（/model <名称> [模型] 切换）：\n")
-			} else {
-				b.WriteString("可用供应商（/model <名称> [模型] 切换）：\n")
-			}
-			for _, p := range m.cfg.List() {
-				mark := "  "
-				if p.ID == m.providerKey {
-					mark = "● "
-				}
-				key := "无 key"
-				if p.APIKey != "" {
-					key = "key ✓"
-				}
-				source := p.Source
-				if source == "" {
-					source = "builtin"
-				}
-				models := p.Models
-				if len(models) == 0 {
-					models = []string{p.Model}
-				}
-				shown := models
-				if len(shown) > 3 {
-					shown = shown[:3]
-				}
-				modelText := strings.Join(shown, ", ")
-				if len(models) > 3 {
-					modelText += fmt.Sprintf(" +%d", len(models)-3)
-				}
-				fmt.Fprintf(&b, "%s%s  %s  %s\n    %s\n",
-					mark, styleAccent.Render(padRight(truncateWidth(p.Name, 18), 18)),
-					styleFaintText.Render(p.Kind),
-					styleFaintText.Render(key+"  "+source),
-					styleDimText.Render(modelText))
-			}
-			return notice("%s", strings.TrimRight(b.String(), "\n"))
+			m.openModelPicker()
+			return nil
 		}
 		if len(args) >= 2 {
 			return m.switchProvider(args[0], args[1])
@@ -273,7 +237,9 @@ func (m *Model) switchProvider(name string, model ...string) tea.Cmd {
 	m.ag.Reasoning = preset.Reasoning
 	// Remember the choice for the next launch without copying the shared
 	// provider registry into the TUI config file.
-	_ = config.SaveDefault(key)
+	if !m.demo {
+		_ = config.SaveDefault(key)
+	}
 	source := preset.Source
 	if source == "" {
 		source = "builtin"

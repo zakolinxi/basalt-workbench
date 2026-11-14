@@ -182,6 +182,25 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			m.refreshViewport(false)
 			return m, nil
 		}},
+		{"06-models", func() (*Model, error) {
+			m, err := New(workspace, loaded, true)
+			if err != nil {
+				return nil, err
+			}
+			useDemoProvider(m)
+			m.cfg.Providers = demoProviders()
+			m.cfg.Default = "demo-deepseek"
+			m.cfg.Source = "basalt"
+			m.sess.Usage = session.Usage{Input: 8420, Output: 864, Requests: 2}
+			m.items = []Item{
+				{Kind: ItemUser, Text: "这个任务换个便宜点的模型试试", At: demoTime(14, 46)},
+				{Kind: ItemAssistant, Model: "deepseek-chat", At: demoTime(14, 46), Text: "好，按 `/model` 打开选择器，方向键选、Enter 切换。"},
+			}
+			m.prepare(width, height)
+			m.picker = newModelPicker(m.cfg, "demo-deepseek", "deepseek-chat")
+			m.refreshViewport(false)
+			return m, nil
+		}},
 	}
 
 	out := make([]Scene, 0, len(scenes))
@@ -221,6 +240,36 @@ func useDemoProvider(m *Model) {
 	m.sess.Provider = id
 	m.sess.Model = "deepseek-chat"
 	m.cfg.Source = "builtin"
+}
+
+func demoProviders() map[string]config.ProviderConfig {
+	return map[string]config.ProviderConfig{
+		"demo-deepseek": {
+			ID: "demo-deepseek", Name: "DeepSeek", Kind: "openai_chat",
+			Model: "deepseek-chat", Models: []string{"deepseek-chat", "deepseek-reasoner"},
+			APIKey: "demo", Source: "basalt",
+		},
+		"demo-anthropic": {
+			ID: "demo-anthropic", Name: "Anthropic Claude", Kind: "anthropic",
+			Model: "claude-sonnet-4-5", Models: []string{"claude-sonnet-4-5", "claude-opus-4-5"},
+			APIKey: "demo", Source: "basalt",
+		},
+		"demo-openai": {
+			ID: "demo-openai", Name: "OpenAI", Kind: "openai_responses",
+			Model: "gpt-4.1", Models: []string{"gpt-4.1", "o3"},
+			APIKey: "demo", Source: "basalt",
+		},
+		"demo-gemini": {
+			ID: "demo-gemini", Name: "Gemini", Kind: "gemini",
+			Model: "gemini-2.5-pro", Models: []string{"gemini-2.5-pro", "gemini-2.5-flash"},
+			APIKey: "demo", Source: "basalt",
+		},
+		"demo-ollama": {
+			ID: "demo-ollama", Name: "Ollama", Kind: "ollama",
+			Model: "qwen2.5-coder:7b", Models: []string{"qwen2.5-coder:7b"},
+			Source: "basalt",
+		},
+	}
 }
 
 func demoDoneItems() []Item {

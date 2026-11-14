@@ -30,10 +30,18 @@ func (m *Model) View() string {
 	if m.showHelp {
 		out = placeOverlay(out, m.renderHelp(), m.width, max(1, (m.height-lipgloss.Height(m.renderHelp()))/2))
 	}
-	if m.slash.open && m.approval == nil {
+	if m.slash.open && m.approval == nil && m.picker == nil {
 		menu := m.renderSlashMenu()
 		y := m.height - m.composerHeight() - 2 - lipgloss.Height(menu)
 		out = placeOverlay(out, menu, m.width, max(1, y))
+	}
+	if m.picker != nil {
+		popup := m.renderModelPicker()
+		y := (m.height - lipgloss.Height(popup)) / 2
+		if y < 1 {
+			y = 1
+		}
+		out = placeOverlay(out, popup, m.width, y)
 	}
 	return truncateLines(out, m.height)
 }
@@ -311,7 +319,7 @@ func (m *Model) renderHelp() string {
 	}
 	rows := [][2]string{
 		{"/help", "显示这份帮助"},
-		{"/model [name]", "查看或切换 provider"},
+		{"/model", "↑↓ 选择供应商与模型"},
 		{"/new", "开始新会话"},
 		{"/sessions", "列出历史会话"},
 		{"/resume <id>", "恢复历史会话"},

@@ -37,15 +37,18 @@ func TestSlashHelpOpensOverlay(t *testing.T) {
 func TestSlashToolsAndModelListing(t *testing.T) {
 	m := newTestModel(t)
 	m.submit("/tools")
-	m.submit("/model")
 	m.submit("/cost")
-	if len(m.items) != 3 {
-		t.Fatalf("expected three notices, got %d", len(m.items))
+	if len(m.items) != 2 {
+		t.Fatalf("expected two notices, got %d", len(m.items))
 	}
 	for _, it := range m.items {
 		if it.Kind != ItemNotice {
 			t.Fatalf("expected notice items, got %v", it.Kind)
 		}
+	}
+	m.submit("/model")
+	if m.picker == nil {
+		t.Fatal("/model should open the interactive picker")
 	}
 }
 
@@ -138,8 +141,8 @@ func TestWelcomeAndConversationViews(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(scenes) != 5 {
-		t.Fatalf("expected 5 demo scenes, got %d", len(scenes))
+	if len(scenes) != 6 {
+		t.Fatalf("expected 6 demo scenes, got %d", len(scenes))
 	}
 	for _, sc := range scenes {
 		frame := sc.RenderFrame()

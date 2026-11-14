@@ -18,6 +18,10 @@
 
 ![命令](docs/screenshots/05-commands.png)
 
+`/model` 交互式选择供应商与模型：
+
+![模型选择](docs/screenshots/06-models.png)
+
 ## 特性
 
 - **与桌面工作台共用供应商**：直接读取 Basalt 的 `basalt.db` 和 Windows 凭据，桌面版配置过的 provider、模型和 API Key 在终端里立即可用，不需要再配一遍。
@@ -25,7 +29,7 @@
 - **真实文件操作**：`read` / `write` / `edit` / `list` / `glob` / `grep` / `bash` / `webfetch` / `update_plan`，全部限制在工作区内。
 - **改动可见、可撤销**：写入前生成行级 diff；每次修改保存快照，`/undo` 一键还原。
 - **审批式执行**：写文件、执行命令、抓取网页前弹出确认卡片，支持 `y` 允许一次、`a` 本会话总是允许、`n` 拒绝。
-- **多 provider 热切换**：`/model` 列出工作台里的全部供应商与模型，`/model DeepSeek` 或 `/model DeepSeek deepseek-chat` 立即切换。
+- **多 provider 热切换**：`/model` 打开交互式选择器，方向键选供应商和模型，Enter 切换，支持输入过滤；也可 `/model DeepSeek deepseek-chat` 直接指定。
 - **会话持久化**：自动保存到用户配置目录，`/sessions` / `/resume` 恢复；`/export` 导出 Markdown。
 - **终端质感**：真彩渐变、Markdown 渲染、语法高亮、行内代码、diff 着色、自适应输入框与状态栏。
 - **上下文管理**：超长会话自动压缩，`/compact` 手动触发。
@@ -118,7 +122,7 @@ JSON 里的字段会覆盖同名供应商，未写的字段（ID、BaseURL、Key
 | 命令 | 作用 |
 | --- | --- |
 | `/help` | 帮助与快捷键 |
-| `/model [name] [model]` | 列出或切换供应商 / 模型 |
+| `/model` | 打开供应商 / 模型选择器 |
 | `/new` | 新会话 |
 | `/sessions` | 列出历史会话 |
 | `/resume <id>` | 恢复会话 |
