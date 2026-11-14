@@ -223,33 +223,53 @@ func (m *Model) renderComposer() string {
 }
 
 func (m *Model) renderFooter() string {
-	right := m.footerHints()
-	if m.notice != "" && time.Since(m.noticeAt) < 4*time.Second {
-		right = styleWarn.Render(truncateWidth(m.notice, max(10, m.width-displayWidth(m.footerHints())-4)))
-	}
-
 	state := m.footerState(false)
 	badge := m.contextBadge(false)
-	budget := m.width - displayWidth(right) - 3
-	if displayWidth(badge)+displayWidth(state) > budget {
-		state = m.footerState(true)
-	}
-	if displayWidth(badge)+displayWidth(state) > budget {
-		badge = m.contextBadge(true)
-	}
-	if displayWidth(badge)+displayWidth(state) > budget {
-		badge = ""
-	}
-	left := state
-	if badge != "" {
-		left = badge + "   " + state
+	hints := m.footerHints()
+
+	compose := func(h, b string) string {
+		switch {
+		case h != "" && b != "":
+			return h + styleFooterDesc.Render("   ") + b
+		case h != "":
+			return h
+		default:
+			return b
+		}
 	}
 
-	gap := m.width - displayWidth(left) - displayWidth(right)
+	right := compose(hints, badge)
+	if displayWidth(state)+displayWidth(right)+5 > m.width {
+		badge = m.contextBadge(true)
+		right = compose(hints, badge)
+	}
+	if displayWidth(state)+displayWidth(right)+5 > m.width {
+		hints = ""
+		right = compose("", badge)
+	}
+	if displayWidth(state)+displayWidth(right)+5 > m.width {
+		state = m.footerState(true)
+		right = compose("", badge)
+	}
+	if displayWidth(state)+displayWidth(right)+5 > m.width {
+		right = ""
+	}
+
+	// A notice replaces the shortcut hints but keeps the gauge visible.
+	if m.notice != "" && time.Since(m.noticeAt) < 4*time.Second {
+		room := m.width - displayWidth(state) - displayWidth(badge) - 8
+		if room > 12 {
+			right = compose(styleWarn.Render(truncateWidth(m.notice, room)), badge)
+		} else {
+			right = styleWarn.Render(truncateWidth(m.notice, max(8, m.width-displayWidth(state)-4)))
+		}
+	}
+
+	gap := m.width - displayWidth(state) - displayWidth(right)
 	if gap < 1 {
 		gap = 1
 	}
-	return left + spaces(gap) + right
+	return state + spaces(gap) + right
 }
 
 // footerHints degrades the shortcuts on narrow terminals.

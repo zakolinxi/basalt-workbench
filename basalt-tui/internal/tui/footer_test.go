@@ -58,6 +58,26 @@ func TestFooterFitsWidth(t *testing.T) {
 	}
 }
 
+func TestFooterBadgeOnRight(t *testing.T) {
+	m := newTestModel(t)
+	m.preset.ContextLength = 131072
+	m.ctxTokens = 65536
+	m.cacheTokens = 32768
+	m.prepare(120, 38)
+	footer := stripANSI(m.renderFooter())
+	stateIdx := strings.Index(footer, "就绪")
+	badgeIdx := strings.Index(footer, "ctx ")
+	if stateIdx < 0 || badgeIdx < 0 {
+		t.Fatalf("missing footer parts: %q", footer)
+	}
+	if badgeIdx < stateIdx {
+		t.Fatalf("context badge should be on the right: %q", footer)
+	}
+	if badgeIdx < len(footer)/2 {
+		t.Fatalf("context badge should sit near the right edge: %q", footer)
+	}
+}
+
 func TestTokenLabel(t *testing.T) {
 	cases := map[int]string{
 		0:       "0",
