@@ -3,6 +3,7 @@ package tui
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestContextBadge(t *testing.T) {
@@ -75,6 +76,49 @@ func TestFooterBadgeOnRight(t *testing.T) {
 	}
 	if badgeIdx < len(footer)/2 {
 		t.Fatalf("context badge should sit near the right edge: %q", footer)
+	}
+}
+
+func TestTPSLabel(t *testing.T) {
+	m := newTestModel(t)
+	m.streaming = true
+	m.runStarted = time.Now().Add(-2 * time.Second)
+	m.streamTokens = 100
+	v := m.computeTPS()
+	if v < 45 || v > 55 {
+		t.Fatalf("unexpected tps %.1f", v)
+	}
+	label := stripANSI(m.tpsLabel(false))
+	if !strings.Contains(label, "t/s") || !strings.Contains(label, "50") {
+		t.Fatalf("unexpected tps label %q", label)
+	}
+	m.streaming = false
+	m.lastTPS = v
+	if got := m.computeTPS(); got != v {
+		t.Fatalf("idle tps should reuse the last value, got %.1f", got)
+	}
+}
+
+func TestTPSUsesCharEstimateBeforeUsage(t *testing.T) {
+	m := newTestModel(t)
+	m.streaming = true
+	m.runStarted = time.Now().Add(-3 * time.Second)
+	m.streamChars = 300 // 300 chars / 3 = ~100 tokens
+	v := m.computeTPS()
+	if v < 28 || v > 38 {
+		t.Fatalf("unexpected estimated tps %.1f", v)
+	}
+}
+
+func TestFooterShowsTPS(t *testing.T) {
+	m := newTestModel(t)
+	m.streaming = true
+	m.runStarted = time.Now().Add(-2 * time.Second)
+	m.streamTokens = 120
+	m.prepare(120, 38)
+	footer := stripANSI(m.renderFooter())
+	if !strings.Contains(footer, "t/s") {
+		t.Fatalf("footer missing tps: %q", footer)
 	}
 }
 

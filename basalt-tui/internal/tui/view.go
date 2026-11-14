@@ -47,6 +47,51 @@ func (m *Model) View() string {
 	return truncateLines(out, m.height)
 }
 
+// computeTPS returns the live output speed while streaming, or the last
+// measured speed once the run finishes.
+func (m *Model) computeTPS() float64 {
+	if !m.streaming {
+		return m.lastTPS
+	}
+	if m.runStarted.IsZero() {
+		return 0
+	}
+	elapsed := time.Since(m.runStarted).Seconds()
+	if elapsed < 1.0 {
+		return 0
+	}
+	tokens := m.streamTokens
+	if tokens <= 0 {
+		// Until the provider reports usage, estimate ~3 characters per token.
+		tokens = m.streamChars / 3
+	}
+	if tokens <= 0 {
+		return 0
+	}
+	return float64(tokens) / elapsed
+}
+
+// tpsLabel renders the output speed for the footer.
+func (m *Model) tpsLabel(compact bool) string {
+	v := m.computeTPS()
+	if v <= 0 {
+		return ""
+	}
+	var text string
+	switch {
+	case compact:
+		text = fmt.Sprintf("%.0f t/s", v)
+	case v >= 1000:
+		text = fmt.Sprintf("%.1fk t/s", v/1000)
+	default:
+		text = fmt.Sprintf("%.1f t/s", v)
+	}
+	if m.streaming {
+		return styleAccent.Render(text)
+	}
+	return styleFaintText.Render(text)
+}
+
 // displayProvider is the short provider label used by headers and footers.
 func (m *Model) displayProvider() string {
 	if m.preset.Name != "" {
@@ -226,30 +271,38 @@ func (m *Model) renderFooter() string {
 	state := m.footerState(false)
 	badge := m.contextBadge(false)
 	hints := m.footerHints()
+	tps := m.tpsLabel(false)
 
-	compose := func(h, b string) string {
-		switch {
-		case h != "" && b != "":
-			return h + styleFooterDesc.Render("   ") + b
-		case h != "":
-			return h
-		default:
-			return b
+	compose := func(parts ...string) string {
+		var out []string
+		for _, part := range parts {
+			if part != "" {
+				out = append(out, part)
+			}
 		}
+		return strings.Join(out, styleFooterDesc.Render("   "))
 	}
 
-	right := compose(hints, badge)
+	right := compose(hints, tps, badge)
 	if displayWidth(state)+displayWidth(right)+5 > m.width {
 		badge = m.contextBadge(true)
-		right = compose(hints, badge)
+		right = compose(hints, tps, badge)
 	}
 	if displayWidth(state)+displayWidth(right)+5 > m.width {
 		hints = ""
-		right = compose("", badge)
+		right = compose(tps, badge)
+	}
+	if displayWidth(state)+displayWidth(right)+5 > m.width {
+		tps = m.tpsLabel(true)
+		right = compose(tps, badge)
+	}
+	if displayWidth(state)+displayWidth(right)+5 > m.width {
+		tps = ""
+		right = compose(badge)
 	}
 	if displayWidth(state)+displayWidth(right)+5 > m.width {
 		state = m.footerState(true)
-		right = compose("", badge)
+		right = compose(badge)
 	}
 	if displayWidth(state)+displayWidth(right)+5 > m.width {
 		right = ""

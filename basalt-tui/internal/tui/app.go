@@ -62,6 +62,8 @@ type Model struct {
 	runStarted   time.Time
 	lastEventAt  time.Time
 	streamChars  int
+	streamTokens int
+	lastTPS      float64
 
 	approval *approvalState
 	picker   *pickerState
@@ -272,6 +274,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.handleAgentEvent(agent.Event(msg))
 
 	case runDoneMsg:
+		if m.streaming {
+			m.lastTPS = m.computeTPS()
+		}
 		m.streaming = false
 		m.cancel = nil
 		m.streamIdx = -1
@@ -499,6 +504,7 @@ func (m *Model) submit(text string) tea.Cmd {
 	m.streaming = true
 	m.runStarted = time.Now()
 	m.streamChars = 0
+	m.streamTokens = 0
 	m.refreshViewport(true)
 
 	ch := make(chan agent.Event, 256)
@@ -579,6 +585,9 @@ func (m *Model) handleAgentEvent(ev agent.Event) tea.Cmd {
 		}
 		if ev.Cached > 0 {
 			m.cacheTokens = ev.Cached
+		}
+		if ev.Output > 0 {
+			m.streamTokens = ev.Output
 		}
 		m.usage = m.sess.Usage
 		m.refreshViewport(false)

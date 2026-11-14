@@ -113,6 +113,7 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			m.sess.Usage = session.Usage{Input: 8420, Output: 864, Requests: 2}
 			m.ctxTokens = 8420
 			m.cacheTokens = 2048
+			m.lastTPS = 48.6
 			m.items = []Item{
 				{Kind: ItemUser, Text: demoUserPrompt, At: demoTime(14, 31)},
 				{Kind: ItemThinking, At: demoTime(14, 31), Text: "先看登录实现和现有的测试结构，再决定限流放在路由层还是服务层。\n现有 login 只校验密码，没有失败计数，适合在服务层加计数与锁定窗口。"},
@@ -135,6 +136,7 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			m.sess.Usage = session.Usage{Input: 8420, Output: 1204, Requests: 3}
 			m.ctxTokens = 8420
 			m.cacheTokens = 1204
+			m.lastTPS = 52.1
 			m.items = []Item{
 				{Kind: ItemUser, Text: demoUserPrompt, At: demoTime(14, 31)},
 				{Kind: ItemAssistant, Model: "deepseek-chat", At: demoTime(14, 31), Text: "先看登录实现和现有的测试结构。登录逻辑现在只校验密码，没有失败计数，我准备在 `src/server/auth.ts` 中加计数与锁定窗口。"},
@@ -164,6 +166,7 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			m.sess.Usage = session.Usage{Input: 12840, Output: 1836, Requests: 4, ToolCalls: 4}
 			m.ctxTokens = 12840
 			m.cacheTokens = 6144
+			m.lastTPS = 36.4
 			m.items = demoDoneItems()
 			m.prepare(width, height)
 			return m, nil
@@ -177,6 +180,7 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			m.sess.Usage = session.Usage{Input: 8420, Output: 864, Requests: 2}
 			m.ctxTokens = 8420
 			m.cacheTokens = 2048
+			m.lastTPS = 48.6
 			m.items = []Item{
 				{Kind: ItemUser, Text: "把 auth 的失败计数改成可配置的", At: demoTime(14, 41)},
 				{Kind: ItemAssistant, Model: "deepseek-chat", At: demoTime(14, 42), Text: "可以。`MAX_ATTEMPTS` 和 `LOCK_MS` 目前是常量，我建议抽到 `src/config.ts`，用环境变量覆盖，保持现有默认值不变。\n\n需要我先看一下 `config.ts` 的现有结构吗？"},
@@ -203,6 +207,7 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			m.sess.Usage = session.Usage{Input: 8420, Output: 864, Requests: 2}
 			m.ctxTokens = 8420
 			m.cacheTokens = 2048
+			m.lastTPS = 48.6
 			m.items = []Item{
 				{Kind: ItemUser, Text: "这个任务换个便宜点的模型试试", At: demoTime(14, 46)},
 				{Kind: ItemAssistant, Model: "deepseek-chat", At: demoTime(14, 46), Text: "好，按 `/model` 打开选择器，方向键选、Enter 切换。"},
@@ -221,6 +226,7 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			m.sess.Usage = session.Usage{Input: 6240, Output: 512, Requests: 2, ToolCalls: 1}
 			m.ctxTokens = 6240
 			m.cacheTokens = 1870
+			m.lastTPS = 41.2
 			m.items = []Item{
 				{Kind: ItemUser, Text: "查一下 opencode 现在的维护状态，顺便说下它的终端交互有什么值得借鉴的", At: demoTime(14, 52)},
 				{Kind: ItemAssistant, Model: "deepseek-chat", At: demoTime(14, 52), Text: "我搜一下最新信息，再抓取第一条正文确认。"},
