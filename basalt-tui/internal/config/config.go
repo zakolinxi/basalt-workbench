@@ -28,17 +28,19 @@ import (
 
 // ProviderConfig is the runtime view of one provider.
 type ProviderConfig struct {
-	ID          string            `json:"id,omitempty"`
-	Name        string            `json:"name,omitempty"`
-	Kind        string            `json:"kind"` // openai_chat | openai_responses | anthropic | gemini | ollama
-	Model       string            `json:"model"`
-	BaseURL     string            `json:"baseUrl,omitempty"`
-	APIKey      string            `json:"apiKey,omitempty"`
-	MaxTokens   int               `json:"maxTokens,omitempty"`
-	Temperature float64           `json:"temperature,omitempty"`
-	Reasoning   string            `json:"reasoning,omitempty"`
-	Headers     map[string]string `json:"headers,omitempty"`
-	TimeoutSecs int               `json:"timeoutSecs,omitempty"`
+	ID        string `json:"id,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Kind      string `json:"kind"` // openai_chat | openai_responses | anthropic | gemini | ollama
+	Model     string `json:"model"`
+	BaseURL   string `json:"baseUrl,omitempty"`
+	APIKey    string `json:"apiKey,omitempty"`
+	MaxTokens int    `json:"maxTokens,omitempty"`
+	// ContextLength is the model's context window, when the provider knows it.
+	ContextLength int               `json:"contextLength,omitempty"`
+	Temperature   float64           `json:"temperature,omitempty"`
+	Reasoning     string            `json:"reasoning,omitempty"`
+	Headers       map[string]string `json:"headers,omitempty"`
+	TimeoutSecs   int               `json:"timeoutSecs,omitempty"`
 	// Source is "basalt", "config" or "builtin" and is shown in /model.
 	Source string `json:"-"`
 	// Models lists the models known by the desktop provider.
@@ -158,14 +160,19 @@ func fromDB(p basaltdb.Provider) ProviderConfig {
 		model = p.Models[0].ID
 	}
 	models := make([]string, 0, len(p.Models))
+	contextLength := 0
 	for _, m := range p.Models {
 		models = append(models, m.ID)
+		if m.ID == model && m.ContextLength != nil && *m.ContextLength > 0 {
+			contextLength = int(*m.ContextLength)
+		}
 	}
 	key, _ := secrets.ReadProviderKey(p.ID)
 	return ProviderConfig{
 		ID: p.ID, Name: p.Name, Kind: normalizeKind(p.Protocol), Model: model,
 		BaseURL: p.BaseURL, APIKey: key, Headers: p.Headers,
-		TimeoutSecs: p.TimeoutSecs, Source: "basalt", Models: models,
+		TimeoutSecs: p.TimeoutSecs, ContextLength: contextLength,
+		Source: "basalt", Models: models,
 	}
 }
 
@@ -188,14 +195,17 @@ func normalizeKind(kind string) string {
 
 func readConfigFile(workspace string) (string, *fileConfig) {
 	var candidates []string
+	// An explicit path is authoritative: do not silently fall back to the
+	// user-level file when it is missing.
 	if p := os.Getenv("BASALT_TUI_CONFIG"); p != "" {
 		candidates = append(candidates, p)
-	}
-	if workspace != "" {
-		candidates = append(candidates, filepath.Join(workspace, ".basalt", "config.json"))
-	}
-	if dir, err := os.UserConfigDir(); err == nil {
-		candidates = append(candidates, filepath.Join(dir, "basalt-tui", "config.json"))
+	} else {
+		if workspace != "" {
+			candidates = append(candidates, filepath.Join(workspace, ".basalt", "config.json"))
+		}
+		if dir, err := os.UserConfigDir(); err == nil {
+			candidates = append(candidates, filepath.Join(dir, "basalt-tui", "config.json"))
+		}
 	}
 	for _, p := range candidates {
 		raw, err := os.ReadFile(p)
@@ -249,6 +259,9 @@ func mergeFile(cfg *Config, file fileConfig) {
 		}
 		if incoming.MaxTokens > 0 {
 			cur.MaxTokens = incoming.MaxTokens
+		}
+		if incoming.ContextLength > 0 {
+			cur.ContextLength = incoming.ContextLength
 		}
 		if incoming.Temperature > 0 {
 			cur.Temperature = incoming.Temperature
@@ -370,6 +383,9 @@ func (c Config) Resolve(name string) (ProviderConfig, error) {
 	if p.MaxTokens <= 0 {
 		p.MaxTokens = 8192
 	}
+	if p.ContextLength <= 0 {
+		p.ContextLength = guessContextLength(p.Kind, p.Model)
+	}
 	if p.Name == "" {
 		p.Name = key
 	}
@@ -446,6 +462,32 @@ func SaveDefault(providerID string) error {
 		return err
 	}
 	return os.Rename(tmp, path)
+}
+
+// guessContextLength supplies a sane default when the provider does not expose
+// a context window.
+func guessContextLength(kind, model string) int {
+	m := strings.ToLower(model)
+	switch {
+	case kind == "gemini", strings.Contains(m, "gemini"):
+		return 1_000_000
+	case strings.Contains(m, "claude"):
+		return 200_000
+	case strings.Contains(m, "gpt-4.1"), strings.Contains(m, "gpt-5"):
+		return 1_000_000
+	case strings.Contains(m, "gpt-4o"), strings.Contains(m, "o3"), strings.Contains(m, "o4"):
+		return 200_000
+	case strings.Contains(m, "deepseek"):
+		return 131_072
+	case strings.Contains(m, "kimi"):
+		return 262_144
+	case strings.Contains(m, "qwen"):
+		return 131_072
+	case kind == "ollama":
+		return 32_768
+	default:
+		return 131_072
+	}
 }
 
 // Snippet renders a short redacted description for the UI.

@@ -272,6 +272,8 @@ func (m *Model) resume(id string) tea.Cmd {
 	m.ag.Session = sess
 	m.env.SessionID = sess.ID
 	m.usage = sess.Usage
+	m.ctxTokens = sess.ContextTokens
+	m.cacheTokens = sess.CacheTokens
 	if preset, err := m.cfg.Resolve(sess.Provider); err == nil {
 		if client, err := llm.New(preset); err == nil {
 			key, _, _ := m.cfg.Find(sess.Provider)

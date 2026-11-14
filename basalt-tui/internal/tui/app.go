@@ -69,8 +69,10 @@ type Model struct {
 	notice   string
 	noticeAt time.Time
 
-	usage    session.Usage
-	contextN int
+	usage       session.Usage
+	contextN    int
+	ctxTokens   int
+	cacheTokens int
 
 	showHelp bool
 	quitting bool
@@ -270,6 +272,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.items = append(m.items, Item{Kind: ItemError, Text: msg.err.Error(), At: time.Now()})
 		}
 		m.refreshViewport(false)
+		m.sess.ContextTokens = m.ctxTokens
+		m.sess.CacheTokens = m.cacheTokens
 		cmd := m.saveCmd()
 		return m, cmd
 
@@ -561,6 +565,12 @@ func (m *Model) handleAgentEvent(ev agent.Event) tea.Cmd {
 		m.refreshViewport(m.autoScroll)
 
 	case agent.EvUsage:
+		if ev.Input > 0 {
+			m.ctxTokens = ev.Input
+		}
+		if ev.Cached > 0 {
+			m.cacheTokens = ev.Cached
+		}
 		m.usage = m.sess.Usage
 		m.refreshViewport(false)
 

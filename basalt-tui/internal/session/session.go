@@ -42,6 +42,10 @@ type Session struct {
 	Workspace string        `json:"workspace"`
 	Messages  []llm.Message `json:"messages"`
 	Usage     Usage         `json:"usage"`
+	// ContextTokens is the prompt size of the last request and CacheTokens is
+	// how much of it was served from the provider cache.
+	ContextTokens int `json:"contextTokens,omitempty"`
+	CacheTokens   int `json:"cacheTokens,omitempty"`
 }
 
 // Store persists sessions under a directory.

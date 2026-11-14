@@ -111,6 +111,8 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			}
 			useDemoProvider(m)
 			m.sess.Usage = session.Usage{Input: 8420, Output: 864, Requests: 2}
+			m.ctxTokens = 8420
+			m.cacheTokens = 2048
 			m.items = []Item{
 				{Kind: ItemUser, Text: demoUserPrompt, At: demoTime(14, 31)},
 				{Kind: ItemThinking, At: demoTime(14, 31), Text: "先看登录实现和现有的测试结构，再决定限流放在路由层还是服务层。\n现有 login 只校验密码，没有失败计数，适合在服务层加计数与锁定窗口。"},
@@ -131,6 +133,8 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			}
 			useDemoProvider(m)
 			m.sess.Usage = session.Usage{Input: 8420, Output: 1204, Requests: 3}
+			m.ctxTokens = 8420
+			m.cacheTokens = 1204
 			m.items = []Item{
 				{Kind: ItemUser, Text: demoUserPrompt, At: demoTime(14, 31)},
 				{Kind: ItemAssistant, Model: "deepseek-chat", At: demoTime(14, 31), Text: "先看登录实现和现有的测试结构。登录逻辑现在只校验密码，没有失败计数，我准备在 `src/server/auth.ts` 中加计数与锁定窗口。"},
@@ -158,6 +162,8 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			}
 			useDemoProvider(m)
 			m.sess.Usage = session.Usage{Input: 12840, Output: 1836, Requests: 4, ToolCalls: 4}
+			m.ctxTokens = 12840
+			m.cacheTokens = 6144
 			m.items = demoDoneItems()
 			m.prepare(width, height)
 			return m, nil
@@ -169,6 +175,8 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			}
 			useDemoProvider(m)
 			m.sess.Usage = session.Usage{Input: 8420, Output: 864, Requests: 2}
+			m.ctxTokens = 8420
+			m.cacheTokens = 2048
 			m.items = []Item{
 				{Kind: ItemUser, Text: "把 auth 的失败计数改成可配置的", At: demoTime(14, 41)},
 				{Kind: ItemAssistant, Model: "deepseek-chat", At: demoTime(14, 42), Text: "可以。`MAX_ATTEMPTS` 和 `LOCK_MS` 目前是常量，我建议抽到 `src/config.ts`，用环境变量覆盖，保持现有默认值不变。\n\n需要我先看一下 `config.ts` 的现有结构吗？"},
@@ -193,6 +201,8 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			m.cfg.Default = "demo-deepseek"
 			m.cfg.Source = "basalt"
 			m.sess.Usage = session.Usage{Input: 8420, Output: 864, Requests: 2}
+			m.ctxTokens = 8420
+			m.cacheTokens = 2048
 			m.items = []Item{
 				{Kind: ItemUser, Text: "这个任务换个便宜点的模型试试", At: demoTime(14, 46)},
 				{Kind: ItemAssistant, Model: "deepseek-chat", At: demoTime(14, 46), Text: "好，按 `/model` 打开选择器，方向键选、Enter 切换。"},
@@ -236,11 +246,13 @@ func useDemoProvider(m *Model) {
 	m.providerKey = id
 	m.preset = config.ProviderConfig{
 		ID: id, Name: "deepseek", Kind: "openai_chat", Model: "deepseek-chat",
-		BaseURL: "https://api.deepseek.com/v1", MaxTokens: 8192, Source: "builtin",
+		BaseURL: "https://api.deepseek.com/v1", MaxTokens: 8192,
+		ContextLength: 131072, Source: "builtin",
 	}
 	m.sess.Provider = id
 	m.sess.Model = "deepseek-chat"
 	m.cfg.Source = "builtin"
+	m.cfgPath = ""
 }
 
 func demoProviders() map[string]config.ProviderConfig {

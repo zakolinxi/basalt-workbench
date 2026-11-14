@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -222,41 +223,162 @@ func (m *Model) renderComposer() string {
 }
 
 func (m *Model) renderFooter() string {
-	var left string
-	if !m.autoScroll {
-		left = styleWarn.Render("↑") + " " + styleDimText.Render("浏览历史")
-		left += styleFaintText.Render("  End 回到底部")
-		if m.streaming {
-			left += styleFaintText.Render("  · 新内容在下方")
-		}
-	} else if m.streaming {
-		elapsed := time.Since(m.runStarted).Seconds()
-		left = styleAccent.Render(m.spinner.View()) + " " +
-			styleDimText.Render("正在生成") + styleFaintText.Render(fmt.Sprintf("  %.1fs", elapsed))
-		if m.streamChars > 0 {
-			left += styleFaintText.Render(fmt.Sprintf("  %s 字", compactNumber(m.streamChars)))
-		}
-		if m.usage.Output > 0 {
-			left += styleFaintText.Render(fmt.Sprintf("  ↓%s", compactNumber(m.usage.Output)))
-		}
-	} else {
-		left = styleOK.Render("●") + " " + styleDimText.Render("就绪")
-		left += styleFaintText.Render("  " + m.preset.Model)
-		if m.env.SnapshotCount() > 0 {
-			left += styleFaintText.Render(fmt.Sprintf("  ·  %d 个可撤销改动", m.env.SnapshotCount()))
-		}
+	right := m.footerHints()
+	if m.notice != "" && time.Since(m.noticeAt) < 4*time.Second {
+		right = styleWarn.Render(truncateWidth(m.notice, max(10, m.width-displayWidth(m.footerHints())-4)))
 	}
 
-	right := styleFaintText.Render("/help 命令") + styleFooterDesc.Render("  ·  ") + styleFaintText.Render("esc 中断") +
-		styleFooterDesc.Render("  ·  ") + styleFaintText.Render("ctrl+c 退出")
-	if m.notice != "" && time.Since(m.noticeAt) < 4*time.Second {
-		right = styleWarn.Render(m.notice)
+	state := m.footerState(false)
+	badge := m.contextBadge(false)
+	budget := m.width - displayWidth(right) - 3
+	if displayWidth(badge)+displayWidth(state) > budget {
+		state = m.footerState(true)
 	}
+	if displayWidth(badge)+displayWidth(state) > budget {
+		badge = m.contextBadge(true)
+	}
+	if displayWidth(badge)+displayWidth(state) > budget {
+		badge = ""
+	}
+	left := state
+	if badge != "" {
+		left = badge + "   " + state
+	}
+
 	gap := m.width - displayWidth(left) - displayWidth(right)
 	if gap < 1 {
 		gap = 1
 	}
 	return left + spaces(gap) + right
+}
+
+// footerHints degrades the shortcuts on narrow terminals.
+func (m *Model) footerHints() string {
+	switch {
+	case m.width >= 100:
+		return styleFaintText.Render("/help 命令") + styleFooterDesc.Render("  ·  ") +
+			styleFaintText.Render("esc 中断") + styleFooterDesc.Render("  ·  ") +
+			styleFaintText.Render("ctrl+c 退出")
+	case m.width >= 78:
+		return styleFaintText.Render("/help") + styleFooterDesc.Render("  ·  ") +
+			styleFaintText.Render("ctrl+c")
+	default:
+		return styleFaintText.Render("ctrl+c")
+	}
+}
+
+// footerState renders the runtime status after the context badge.
+func (m *Model) footerState(short bool) string {
+	if !m.autoScroll {
+		left := styleWarn.Render("↑") + " " + styleDimText.Render("浏览历史")
+		if !short {
+			left += styleFaintText.Render("  End 回到底部")
+			if m.streaming {
+				left += styleFaintText.Render("  · 新内容在下方")
+			}
+		}
+		return left
+	}
+	if m.streaming {
+		elapsed := time.Since(m.runStarted).Seconds()
+		left := styleAccent.Render(m.spinner.View()) + " " +
+			styleDimText.Render("正在生成") + styleFaintText.Render(fmt.Sprintf("  %.1fs", elapsed))
+		if !short && m.streamChars > 0 {
+			left += styleFaintText.Render(fmt.Sprintf("  %s 字", compactNumber(m.streamChars)))
+		}
+		if !short && m.usage.Output > 0 {
+			left += styleFaintText.Render(fmt.Sprintf("  ↓%s", compactNumber(m.usage.Output)))
+		}
+		return left
+	}
+	left := styleOK.Render("●") + " " + styleDimText.Render("就绪")
+	if short {
+		return left
+	}
+	left += styleFaintText.Render("  " + m.preset.Model)
+	if m.env.SnapshotCount() > 0 {
+		left += styleFaintText.Render(fmt.Sprintf("  ·  %d 个可撤销改动", m.env.SnapshotCount()))
+	}
+	return left
+}
+
+// contextBadge renders the always-visible context window gauge.
+func (m *Model) contextBadge(compact bool) string {
+	limit := m.preset.ContextLength
+	if limit <= 0 {
+		limit = 131072
+	}
+	used := m.ctxTokens
+	if used < 0 {
+		used = 0
+	}
+	pct := float64(used) / float64(limit)
+	if pct > 1 {
+		pct = 1
+	}
+	cachePct := 0
+	if used > 0 && m.cacheTokens > 0 {
+		cachePct = int(math.Round(float64(m.cacheTokens) * 100 / float64(used)))
+		if cachePct > 100 {
+			cachePct = 100
+		}
+	}
+
+	if compact {
+		color := cGreen
+		if pct >= 0.85 {
+			color = cRed
+		} else if pct >= 0.6 {
+			color = cYellow
+		}
+		text := fmt.Sprintf("ctx %d%%", int(math.Round(pct*100)))
+		out := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).Render(text)
+		if cachePct > 0 {
+			out += styleFaintText.Render(fmt.Sprintf(" · 缓存 %d%%", cachePct))
+		}
+		return out
+	}
+
+	const barWidth = 12
+	filled := int(math.Round(pct * barWidth))
+	if filled > barWidth {
+		filled = barWidth
+	}
+	if filled < 0 {
+		filled = 0
+	}
+	color := cGreen
+	if pct >= 0.85 {
+		color = cRed
+	} else if pct >= 0.6 {
+		color = cYellow
+	}
+	bar := lipgloss.NewStyle().Foreground(lipgloss.Color(color)).
+		Render(strings.Repeat("▰", filled)) +
+		lipgloss.NewStyle().Foreground(lipgloss.Color(cFaint)).
+			Render(strings.Repeat("▱", barWidth-filled))
+	text := fmt.Sprintf(" %s/%s", tokenLabel(used), tokenLabel(limit))
+	if cachePct > 0 {
+		text += " · " + lipgloss.NewStyle().Foreground(lipgloss.Color(cBlue)).
+			Render(fmt.Sprintf("缓存 %d%%", cachePct))
+	}
+	return styleFaintText.Render("ctx ") + bar + styleFaintText.Render(text)
+}
+
+// tokenLabel formats token counts with 1024-based units, matching how model
+// context windows are usually described (131072 -> 128k).
+func tokenLabel(n int) string {
+	if n < 1000 {
+		return fmt.Sprintf("%d", n)
+	}
+	if n < 1_000_000 {
+		v := float64(n) / 1024
+		if v >= 100 || v == math.Trunc(v) {
+			return fmt.Sprintf("%.0fk", v)
+		}
+		return fmt.Sprintf("%.1fk", v)
+	}
+	return fmt.Sprintf("%.1fM", float64(n)/1_048_576)
 }
 
 func (m *Model) approvalY() int {
