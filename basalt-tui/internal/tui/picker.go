@@ -16,6 +16,7 @@ type pickerItem struct {
 	name    string
 	model   string
 	kind    string
+	source  string
 	hasKey  bool
 	header  bool
 	current bool
@@ -36,7 +37,7 @@ func newModelPicker(cfg config.Config, currentKey, currentModel string) *pickerS
 		}
 		p.items = append(p.items, pickerItem{
 			header: true, group: prov.ID, name: prov.Name,
-			kind: prov.Kind, hasKey: prov.APIKey != "",
+			kind: prov.Kind, source: prov.Source, hasKey: prov.APIKey != "",
 		})
 		for _, model := range models {
 			p.items = append(p.items, pickerItem{
@@ -125,6 +126,20 @@ func (m *Model) openModelPicker() {
 	m.picker = newModelPicker(m.cfg, m.providerKey, m.preset.Model)
 	m.slash.open = false
 	m.refreshViewport(false)
+}
+
+// sourceLabel turns internal source markers into short UI labels.
+func sourceLabel(source string) string {
+	switch {
+	case strings.Contains(source, "basalt"):
+		return "工作台"
+	case source == "config":
+		return "配置"
+	case source == "builtin":
+		return "内置"
+	default:
+		return source
+	}
 }
 
 func (m *Model) handlePickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -229,6 +244,9 @@ func (m *Model) renderModelPicker() string {
 			}
 			line := dot + " " + nameStyle.Render(item.name) +
 				styleFaintText.Render("  "+item.kind)
+			if item.source != "" {
+				line += styleFaintText.Render("  " + sourceLabel(item.source))
+			}
 			if !item.hasKey && item.kind != "ollama" {
 				line += styleWarn.Render("  无 key")
 			}
