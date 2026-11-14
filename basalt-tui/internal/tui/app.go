@@ -552,8 +552,19 @@ func (m *Model) handleAgentEvent(ev agent.Event) tea.Cmd {
 
 	case agent.EvThinking:
 		if m.thinkingIdx < 0 || m.thinkingIdx >= len(m.items) || m.items[m.thinkingIdx].Kind != ItemThinking || !m.items[m.thinkingIdx].Streaming {
-			m.items = append(m.items, Item{Kind: ItemThinking, At: time.Now(), Streaming: true})
-			m.thinkingIdx = len(m.items) - 1
+			item := Item{Kind: ItemThinking, At: time.Now(), Streaming: true}
+			// Some models emit reasoning after the visible answer. Insert it
+			// before the current answer so thinking always reads first.
+			if m.streamIdx >= 0 && m.streamIdx < len(m.items) && m.items[m.streamIdx].Kind == ItemAssistant {
+				m.items = append(m.items, Item{})
+				copy(m.items[m.streamIdx+1:], m.items[m.streamIdx:])
+				m.items[m.streamIdx] = item
+				m.thinkingIdx = m.streamIdx
+				m.streamIdx++
+			} else {
+				m.items = append(m.items, item)
+				m.thinkingIdx = len(m.items) - 1
+			}
 		}
 		m.items[m.thinkingIdx].Text += ev.Text
 		m.refreshViewport(m.autoScroll)
