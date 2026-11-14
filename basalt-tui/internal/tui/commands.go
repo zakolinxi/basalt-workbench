@@ -23,7 +23,7 @@ func newSlashState() *slashState {
 func allCommands() []slashItem {
 	return []slashItem{
 		{"/help", "显示帮助与快捷键"},
-		{"/model", "查看或切换 provider / 模型"},
+		{"/model", "选择供应商与模型"},
 		{"/new", "开始新会话"},
 		{"/sessions", "列出历史会话"},
 		{"/resume", "恢复历史会话"},

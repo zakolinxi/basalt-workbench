@@ -152,7 +152,7 @@ func (m *Model) renderWelcome() string {
 	b.WriteString(spaces(pad) + styleBold.Render("快速开始") + "\n")
 	rows := [][2]string{
 		{"/help", "查看全部命令"},
-		{"/model", "切换 provider / 模型"},
+		{"/model", "选择供应商与模型"},
 		{"Tab", "补全命令"},
 		{"Esc", "中断生成"},
 		{"Ctrl+J", "输入框内换行"},
