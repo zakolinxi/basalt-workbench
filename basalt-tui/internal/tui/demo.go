@@ -212,6 +212,29 @@ func DemoScenes(width, height int, workspace string) ([]Scene, error) {
 			m.refreshViewport(false)
 			return m, nil
 		}},
+		{"07-web", func() (*Model, error) {
+			m, err := New(workspace, loaded, true)
+			if err != nil {
+				return nil, err
+			}
+			useDemoProvider(m)
+			m.sess.Usage = session.Usage{Input: 6240, Output: 512, Requests: 2, ToolCalls: 1}
+			m.ctxTokens = 6240
+			m.cacheTokens = 1870
+			m.items = []Item{
+				{Kind: ItemUser, Text: "查一下 opencode 现在的维护状态，顺便说下它的终端交互有什么值得借鉴的", At: demoTime(14, 52)},
+				{Kind: ItemAssistant, Model: "deepseek-chat", At: demoTime(14, 52), Text: "我搜一下最新信息，再抓取第一条正文确认。"},
+				{Kind: ItemTool, At: demoTime(14, 52), Tool: &agent.ToolEvent{
+					ID: "w1", Name: "websearch", ReadOnly: true,
+					Elapsed: 920 * time.Millisecond,
+					Title:   "websearch \"opencode terminal agent\" · 3 个结果 · tavily",
+					Output:  demoSearchOutput,
+				}},
+				{Kind: ItemAssistant, Model: "deepseek-chat", At: demoTime(14, 53), Text: "查到三条结果。`opencode-ai/opencode` 主仓库已归档，项目迁移到了 Crush；它的 TUI 交互仍然值得借鉴：\n\n- `@` 引用文件、`/` 命令面板、Tab 补全\n- 模型与 provider 快速切换\n- 工具调用前展示结果和差异\n\n搜索走 Tavily，正文抓取会自动提取主内容并转成 Markdown。"},
+			}
+			m.prepare(width, height)
+			return m, nil
+		}},
 	}
 
 	out := make([]Scene, 0, len(scenes))
@@ -254,6 +277,20 @@ func useDemoProvider(m *Model) {
 	m.cfg.Source = "builtin"
 	m.cfgPath = ""
 }
+
+var demoSearchOutput = `搜索：opencode terminal agent（tavily，3 个结果）
+
+1. GitHub - opencode-ai/opencode: A powerful AI coding agent. Built for the terminal.
+   https://github.com/opencode-ai/opencode
+   Archived: this repository has moved and is kept for provenance.
+
+2. OpenCode: Revolutionizing Terminal Coding Agent - Webkul Blog
+   https://webkul.com/blog/opencode-terminal-coding-agent
+   OpenCode can act on its own but stays safe with checks.
+
+3. opencode-ai/opencode releases
+   https://github.com/opencode-ai/opencode/releases
+   Latest release notes and version history.`
 
 func demoProviders() map[string]config.ProviderConfig {
 	return map[string]config.ProviderConfig{

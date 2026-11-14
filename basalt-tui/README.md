@@ -22,10 +22,15 @@
 
 ![模型选择](docs/screenshots/06-models.png)
 
+联网搜索（Tavily / Brave / SearXNG / DuckDuckGo）：
+
+![联网搜索](docs/screenshots/07-web.png)
+
 ## 特性
 
 - **与桌面工作台共用供应商**：直接读取 Basalt 的 `basalt.db` 和 Windows 凭据，桌面版配置过的 provider、模型和 API Key 在终端里立即可用，不需要再配一遍。
 - **真流式对话**：OpenAI Chat Completions、OpenAI Responses、Anthropic Messages、Gemini、Ollama 原生协议，逐字输出，工具调用增量聚合。
+- **联网搜索与正文抓取**：`websearch` 支持 Tavily / Brave / SearXNG / DuckDuckGo，`webfetch` 自动提取正文、转 Markdown、批量抓取与 10 分钟缓存；内网地址会被拦截。
 - **思考可折叠**：推理内容默认收起成一行摘要，`Ctrl+T` 展开全文，再按一次收起。
 - **上下文仪表**：底栏最右侧常驻上下文进度条、`已用/上限` 与缓存命中率，60%/85% 时变黄、变红。
 - **对话可回看**：鼠标滚轮、`↑/↓`、`PgUp/PgDn` 浏览历史；离开底部后流式输出不会把视图拽回去，`End` 一键回到底部。
@@ -107,6 +112,30 @@ JSON 里的字段会覆盖同名供应商，未写的字段（ID、BaseURL、Key
 
 没有工作台数据库时，TUI 回退到内置预设，行为与之前版本一致。
 
+### 联网搜索
+
+`websearch` 会自动选择后端：Tavily → Brave → SearXNG → DuckDuckGo。设置任意一个环境变量即可：
+
+```powershell
+$env:TAVILY_API_KEY = "tvly-..."
+# 或 BRAVE_API_KEY / SEARXNG_URL
+```
+
+也可以在 JSON 里固定后端并调整超时与缓存：
+
+```json
+{
+  "web": {
+    "provider": "tavily",
+    "tavilyKey": "${TAVILY_API_KEY}",
+    "timeoutSeconds": 25,
+    "cacheTtlSeconds": 600
+  }
+}
+```
+
+`websearch` 支持 `fetchTop` 自动抓取前几条正文（0–3），`webfetch` 支持 `urls` 批量抓取（最多 5 个并发）和 `format`（markdown / text / html）。抓取只允许 http(s) 公网地址，回环、内网、链路本地与云元数据地址会被拒绝。
+
 ### 环境变量
 
 | 变量 | 作用 |
@@ -114,6 +143,7 @@ JSON 里的字段会覆盖同名供应商，未写的字段（ID、BaseURL、Key
 | `BASALT_DB` | 指定 `basalt.db` 路径 |
 | `BASALT_HOME` | 指定工作台数据目录 |
 | `BASALT_TUI_CONFIG` | 指定 TUI 覆盖配置 |
+| `TAVILY_API_KEY` / `BRAVE_API_KEY` / `SEARXNG_URL` | 联网搜索后端 |
 | `DEEPSEEK_API_KEY` 等 | 内置预设的密钥回退 |
 
 ### 支持的协议
@@ -179,9 +209,10 @@ go run . --snapshot docs/screenshots -C ..      # 重新生成效果图（需要
 ## 安全边界
 
 - 所有路径解析后必须位于工作区内，`../` 越界会被拒绝。
+- 抓取只允许公网 http(s)：回环、内网、链路本地、CGNAT 与云元数据地址在解析和连接两处都会被拦截。
 - API Key 只从 Windows 凭据管理器读取，不写入 TUI 配置或会话文件。
 - `bash` 子进程会移除常见 API Key 环境变量，避免误泄露。
-- 网页抓取仅支持 `http(s)` GET，响应限制 2MB。
+- 网页抓取只支持 `http(s)` GET，单页上限 4MB，结果缓存 10 分钟；二进制内容会被拒绝。
 - 每次写操作前都能看到完整 diff，拒绝即不落盘。
 
 ## 与 opencode 的差异

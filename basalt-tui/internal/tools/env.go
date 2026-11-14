@@ -14,9 +14,11 @@ type Env struct {
 	Root      string
 	SessionID string
 	DataDir   string
+	Web       WebOptions
 
 	mu        sync.Mutex
 	snapshots []Snapshot
+	cache     *webCache
 }
 
 // Snapshot stores the previous content of a file so /undo can restore it.
@@ -32,7 +34,35 @@ func NewEnv(root, sessionID, dataDir string) *Env {
 	if err == nil {
 		root = abs
 	}
-	return &Env{Root: root, SessionID: sessionID, DataDir: dataDir}
+	web := webOptionsFromEnv()
+	return &Env{
+		Root: root, SessionID: sessionID, DataDir: dataDir,
+		Web: web, cache: newWebCache(web.CacheTTL),
+	}
+}
+
+// SetWebOptions applies runtime web configuration and resets the fetch cache.
+// Empty fields fall back to environment variables so a JSON override can set
+// just the provider without losing the API key.
+func (e *Env) SetWebOptions(o WebOptions) {
+	base := webOptionsFromEnv()
+	if o.Provider == "" {
+		o.Provider = base.Provider
+	}
+	if o.TavilyKey == "" {
+		o.TavilyKey = base.TavilyKey
+	}
+	if o.BraveKey == "" {
+		o.BraveKey = base.BraveKey
+	}
+	if o.SearXNGURL == "" {
+		o.SearXNGURL = base.SearXNGURL
+	}
+	if o.UserAgent == "" {
+		o.UserAgent = base.UserAgent
+	}
+	e.Web = o.withDefaults()
+	e.cache = newWebCache(e.Web.CacheTTL)
 }
 
 // Resolve turns a user/model supplied path into an absolute path inside Root.

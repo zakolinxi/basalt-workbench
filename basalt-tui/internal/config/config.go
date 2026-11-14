@@ -47,6 +47,17 @@ type ProviderConfig struct {
 	Models []string `json:"-"`
 }
 
+// WebConfig configures search and page fetching.
+type WebConfig struct {
+	Provider        string `json:"provider,omitempty"`
+	TavilyKey       string `json:"tavilyKey,omitempty"`
+	BraveKey        string `json:"braveKey,omitempty"`
+	SearXNGURL      string `json:"searxngUrl,omitempty"`
+	UserAgent       string `json:"userAgent,omitempty"`
+	TimeoutSeconds  int    `json:"timeoutSeconds,omitempty"`
+	CacheTTLSeconds int    `json:"cacheTtlSeconds,omitempty"`
+}
+
 // Config is the merged runtime configuration.
 type Config struct {
 	Default      string                    `json:"default"`
@@ -54,6 +65,7 @@ type Config struct {
 	Theme        string                    `json:"theme,omitempty"`
 	AutoApprove  bool                      `json:"autoApproveRead"`
 	CompactAfter int                       `json:"compactAfter,omitempty"`
+	Web          WebConfig                 `json:"web,omitempty"`
 	// Source reports where the provider list came from.
 	Source string `json:"-"`
 	DBPath string `json:"-"`
@@ -228,6 +240,7 @@ type fileConfig struct {
 	Theme        string                    `json:"theme,omitempty"`
 	AutoApprove  *bool                     `json:"autoApproveRead"`
 	CompactAfter int                       `json:"compactAfter,omitempty"`
+	Web          WebConfig                 `json:"web,omitempty"`
 }
 
 // mergeFile applies JSON overrides onto the shared registry. A JSON provider
@@ -296,6 +309,27 @@ func mergeFile(cfg *Config, file fileConfig) {
 	}
 	if file.AutoApprove != nil {
 		cfg.AutoApprove = *file.AutoApprove
+	}
+	if file.Web.Provider != "" {
+		cfg.Web.Provider = file.Web.Provider
+	}
+	if file.Web.TavilyKey != "" {
+		cfg.Web.TavilyKey = expand(file.Web.TavilyKey)
+	}
+	if file.Web.BraveKey != "" {
+		cfg.Web.BraveKey = expand(file.Web.BraveKey)
+	}
+	if file.Web.SearXNGURL != "" {
+		cfg.Web.SearXNGURL = expand(file.Web.SearXNGURL)
+	}
+	if file.Web.UserAgent != "" {
+		cfg.Web.UserAgent = file.Web.UserAgent
+	}
+	if file.Web.TimeoutSeconds > 0 {
+		cfg.Web.TimeoutSeconds = file.Web.TimeoutSeconds
+	}
+	if file.Web.CacheTTLSeconds > 0 {
+		cfg.Web.CacheTTLSeconds = file.Web.CacheTTLSeconds
 	}
 }
 

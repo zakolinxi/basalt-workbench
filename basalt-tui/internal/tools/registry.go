@@ -44,7 +44,7 @@ func NewRegistry() *Registry {
 	r := &Registry{tools: map[string]*Tool{}}
 	for _, t := range []*Tool{
 		toolRead(), toolWrite(), toolEdit(), toolList(), toolGlob(),
-		toolGrep(), toolBash(), toolTodo(), toolWebFetch(),
+		toolGrep(), toolBash(), toolTodo(), toolWebSearch(), toolWebFetch(),
 	} {
 		r.Add(t)
 	}

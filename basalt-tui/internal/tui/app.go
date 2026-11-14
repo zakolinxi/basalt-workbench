@@ -136,6 +136,15 @@ func New(workspace string, loaded config.Loaded, demo bool) (*Model, error) {
 	}
 	sessionID := session.New(cwd, providerKey, preset.Model)
 	env := tools.NewEnv(cwd, sessionID.ID, dataDir)
+	env.SetWebOptions(tools.WebOptions{
+		Provider:   loaded.Config.Web.Provider,
+		TavilyKey:  loaded.Config.Web.TavilyKey,
+		BraveKey:   loaded.Config.Web.BraveKey,
+		SearXNGURL: loaded.Config.Web.SearXNGURL,
+		UserAgent:  loaded.Config.Web.UserAgent,
+		Timeout:    time.Duration(loaded.Config.Web.TimeoutSeconds) * time.Second,
+		CacheTTL:   time.Duration(loaded.Config.Web.CacheTTLSeconds) * time.Second,
+	})
 	reg := tools.NewRegistry()
 	ag := agent.New(client, reg, env, sessionID)
 	ag.MaxTokens = preset.MaxTokens

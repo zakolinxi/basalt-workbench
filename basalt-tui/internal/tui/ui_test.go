@@ -141,8 +141,8 @@ func TestWelcomeAndConversationViews(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(scenes) != 6 {
-		t.Fatalf("expected 6 demo scenes, got %d", len(scenes))
+	if len(scenes) != 7 {
+		t.Fatalf("expected 7 demo scenes, got %d", len(scenes))
 	}
 	for _, sc := range scenes {
 		frame := sc.RenderFrame()
